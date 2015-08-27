@@ -5,4 +5,5 @@ authors = ["Yuta Taniguchi <yuta.taniguchi.y.t@gmail.com>"]
 
 [dependencies]
 docopt = "0.6.*"
+rust-crypto = "*"
 rustc-serialize = "0.3"
