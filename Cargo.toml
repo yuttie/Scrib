@@ -1,0 +1,8 @@
+[package]
+name = "fine"
+version = "0.1.0"
+authors = ["Yuta Taniguchi <yuta.taniguchi.y.t@gmail.com>"]
+
+[dependencies]
+docopt = "0.6.*"
+rustc-serialize = "0.3"
