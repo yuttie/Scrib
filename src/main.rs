@@ -9,6 +9,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
+use std::path::PathBuf;
 
 const USAGE: &'static str = "
 Fine-grained.
@@ -29,10 +30,14 @@ struct Args {
     arg_text: Vec<String>,
 }
 
-fn init() {
+fn get_fine_home() -> PathBuf {
     let mut pathbuf = env::home_dir().unwrap();
-
     pathbuf.push(".fine");
+    pathbuf
+}
+
+fn init() {
+    let mut pathbuf = get_fine_home();
     fs::create_dir_all(pathbuf.as_path()).unwrap();
 
     pathbuf.push("objects");
@@ -47,8 +52,7 @@ fn add(text: &str) {
     };
 
     let mut file = {
-        let mut pathbuf = env::home_dir().unwrap();
-        pathbuf.push(".fine");
+        let mut pathbuf = get_fine_home();
         pathbuf.push("objects");
         pathbuf.push(&digest);
 
