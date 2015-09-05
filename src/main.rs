@@ -1,3 +1,5 @@
+#![feature(path_ext)]
+
 extern crate crypto;
 extern crate docopt;
 extern crate rustc_serialize;
@@ -9,6 +11,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
+use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 
 const USAGE: &'static str = "
@@ -16,6 +19,7 @@ Fine-grained.
 
 Usage:
     fine add [<text>...]
+    fine tag <tag> <hash>
     fine (-h | --help)
     fine --version
 
@@ -26,8 +30,11 @@ Options:
 
 #[derive(Debug, RustcDecodable)]
 struct Args {
-    cmd_add: bool,
+    cmd_add:  bool,
+    cmd_tag:  bool,
     arg_text: Vec<String>,
+    arg_tag:  String,
+    arg_hash: String,
 }
 
 fn get_fine_home() -> PathBuf {
@@ -42,6 +49,11 @@ fn init() {
 
     pathbuf.push("objects");
     fs::create_dir_all(pathbuf.as_path()).unwrap();
+    pathbuf.pop();
+
+    pathbuf.push("tags");
+    fs::create_dir_all(pathbuf.as_path()).unwrap();
+    pathbuf.pop();
 }
 
 fn add(text: &str) {
@@ -63,6 +75,48 @@ fn add(text: &str) {
     println!("{}", &digest);
 }
 
+fn lookup_hash(hash: &str) -> Result<PathBuf, &str> {
+    let mut pathbuf = get_fine_home();
+    pathbuf.push("objects");
+
+    let mut candidates: Vec<PathBuf> = pathbuf.read_dir().unwrap().filter_map(|entry| {
+        let entry = entry.unwrap();
+        let file_name = entry.file_name().into_string().unwrap();
+        if file_name.starts_with(hash) {
+            Some(entry.path())
+        }
+        else {
+            None
+        }
+    }).collect();
+    if candidates.len() == 0 {
+        println!("Found no candidate.");
+        Err("Found no candidate.")
+    }
+    else if candidates.len() == 1 {
+        println!("Found a single candidate.");
+        Ok(candidates.swap_remove(0))
+    }
+    else {
+        Err("Too many candidates.")
+    }
+}
+
+fn tag(tag: &str, hash: &str) {
+    let hash = lookup_hash(&hash).unwrap().file_name().unwrap().to_owned();
+
+    let mut src = PathBuf::from("../../objects/");
+    src.push(&hash);
+
+    let mut dest = get_fine_home();
+    dest.push("tags");
+    dest.push(&tag);
+    fs::create_dir_all(dest.as_path()).unwrap();
+    dest.push(&hash);
+
+    symlink(&src, &dest).unwrap();
+}
+
 fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
@@ -78,5 +132,8 @@ fn main() {
             args.arg_text.join(" ")
         };
         add(&text);
+    }
+    else if args.cmd_tag {
+        tag(&args.arg_tag, &args.arg_hash);
     }
 }
