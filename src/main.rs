@@ -11,7 +11,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::PathBuf;
 
 const USAGE: &'static str = "
@@ -20,6 +20,7 @@ Fine-grained.
 Usage:
     fine add [<text>...]
     fine tag <tag> <hash>
+    fine list
     fine (-h | --help)
     fine --version
 
@@ -32,6 +33,7 @@ Options:
 struct Args {
     cmd_add:  bool,
     cmd_tag:  bool,
+    cmd_list: bool,
     arg_text: Vec<String>,
     arg_tag:  String,
     arg_hash: String,
@@ -117,6 +119,33 @@ fn tag(tag: &str, hash: &str) {
     symlink(&src, &dest).unwrap();
 }
 
+fn list() {
+    let mut obj_dir = get_fine_home();
+    obj_dir.push("objects");
+    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+
+    entries.sort_by(|a, b| {
+        let ctime_a = a.metadata().unwrap().ctime();
+        let ctime_b = b.metadata().unwrap().ctime();
+        ctime_b.cmp(&ctime_a)
+    });
+
+    for entry in entries {
+        let file_name = entry.file_name();
+
+        let content = {
+            let mut file = File::open(entry.path()).unwrap();
+            let mut content = String::new();
+            file.read_to_string(&mut content).unwrap();
+            content
+        };
+
+        println!("{} {}",
+            &file_name.to_str().unwrap()[0..8],
+            &content);
+    }
+}
+
 fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
@@ -135,5 +164,8 @@ fn main() {
     }
     else if args.cmd_tag {
         tag(&args.arg_tag, &args.arg_hash);
+    }
+    else if args.cmd_list {
+        list();
     }
 }
