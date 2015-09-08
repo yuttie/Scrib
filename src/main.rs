@@ -134,10 +134,19 @@ fn list() {
         let file_name = entry.file_name();
 
         let content = {
-            let mut file = File::open(entry.path()).unwrap();
-            let mut content = String::new();
-            file.read_to_string(&mut content).unwrap();
-            content
+            let file = File::open(entry.path()).unwrap();
+            let mut buf: Vec<u8> = Vec::new();
+            file.take(80).read_to_end(&mut buf);
+            match String::from_utf8(buf.clone()) {
+                Ok(string) => string.lines().next().unwrap().to_owned(),
+                Err(_) => {
+                    let mut string = String::new();
+                    for b in &buf[0..20] {
+                        string.push_str(&format!("\\x{:x}", b));
+                    }
+                    string
+                },
+            }
         };
 
         println!("{} {}",
