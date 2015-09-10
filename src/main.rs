@@ -125,9 +125,9 @@ fn list() {
     let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
 
     entries.sort_by(|a, b| {
-        let ctime_a = a.metadata().unwrap().ctime();
-        let ctime_b = b.metadata().unwrap().ctime();
-        ctime_b.cmp(&ctime_a)
+        let mtime_a = a.metadata().unwrap().mtime();
+        let mtime_b = b.metadata().unwrap().mtime();
+        mtime_b.cmp(&mtime_a)
     });
 
     for entry in entries {
