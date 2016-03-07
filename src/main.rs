@@ -1,5 +1,3 @@
-#![feature(path_ext)]
-
 extern crate crypto;
 extern crate docopt;
 extern crate rustc_serialize;
