@@ -13,14 +13,14 @@ use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::PathBuf;
 
 const USAGE: &'static str = "
-Fine-grained.
+Let's Scribble!
 
 Usage:
-    fine add [<text>...]
-    fine tag <tag> <hash>
-    fine list
-    fine (-h | --help)
-    fine --version
+    scrib add [<text>...]
+    scrib tag <tag> <hash>
+    scrib list
+    scrib (-h | --help)
+    scrib --version
 
 Options:
     -h, --help  Show this message.
@@ -37,14 +37,14 @@ struct Args {
     arg_hash: String,
 }
 
-fn get_fine_home() -> PathBuf {
+fn get_scrib_home() -> PathBuf {
     let mut pathbuf = env::home_dir().unwrap();
-    pathbuf.push(".fine");
+    pathbuf.push(".scrib");
     pathbuf
 }
 
 fn init() {
-    let mut pathbuf = get_fine_home();
+    let mut pathbuf = get_scrib_home();
     fs::create_dir_all(pathbuf.as_path()).unwrap();
 
     pathbuf.push("objects");
@@ -64,7 +64,7 @@ fn add(text: &str) {
     };
 
     let mut file = {
-        let mut pathbuf = get_fine_home();
+        let mut pathbuf = get_scrib_home();
         pathbuf.push("objects");
         pathbuf.push(&digest);
 
@@ -76,7 +76,7 @@ fn add(text: &str) {
 }
 
 fn lookup_hash(hash: &str) -> Result<PathBuf, &str> {
-    let mut pathbuf = get_fine_home();
+    let mut pathbuf = get_scrib_home();
     pathbuf.push("objects");
 
     let mut candidates: Vec<PathBuf> = pathbuf.read_dir().unwrap().filter_map(|entry| {
@@ -108,7 +108,7 @@ fn tag(tag: &str, hash: &str) {
     let mut src = PathBuf::from("../../objects/");
     src.push(&hash);
 
-    let mut dest = get_fine_home();
+    let mut dest = get_scrib_home();
     dest.push("tags");
     dest.push(&tag);
     fs::create_dir_all(dest.as_path()).unwrap();
@@ -118,7 +118,7 @@ fn tag(tag: &str, hash: &str) {
 }
 
 fn list() {
-    let mut obj_dir = get_fine_home();
+    let mut obj_dir = get_scrib_home();
     obj_dir.push("objects");
     let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
 
