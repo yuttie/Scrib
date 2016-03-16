@@ -1,16 +1,30 @@
 extern crate crypto;
 extern crate docopt;
 extern crate rustc_serialize;
+extern crate iron;
+extern crate handlebars_iron as hbs;
 
-use docopt::Docopt;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
+use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use docopt::Docopt;
+use iron::{Handler};
+use iron::prelude::*;
+use iron::status;
+use hbs::{Template, HandlebarsEngine, DirectorySource};
+#[cfg(feature = "watch")]
+use hbs::Watchable;
+
+
 
 const USAGE: &'static str = "
 Let's Scribble!
@@ -19,6 +33,7 @@ Usage:
     scrib add [<text>...]
     scrib tag <tag> <hash>
     scrib list
+    scrib serve
     scrib (-h | --help)
     scrib --version
 
@@ -29,12 +44,13 @@ Options:
 
 #[derive(Debug, RustcDecodable)]
 struct Args {
-    cmd_add:  bool,
-    cmd_tag:  bool,
-    cmd_list: bool,
-    arg_text: Vec<String>,
-    arg_tag:  String,
-    arg_hash: String,
+    cmd_add:   bool,
+    cmd_tag:   bool,
+    cmd_list:  bool,
+    cmd_serve: bool,
+    arg_text:  Vec<String>,
+    arg_tag:   String,
+    arg_hash:  String,
 }
 
 fn get_scrib_home() -> PathBuf {
@@ -153,6 +169,93 @@ fn list() {
     }
 }
 
+struct Router {
+    // Routes here are simply matched with the url path.
+    routes: HashMap<String, Box<Handler>>
+}
+
+impl Router {
+    fn new() -> Self {
+        Router { routes: HashMap::new() }
+    }
+
+    fn add_route<H>(&mut self, path: String, handler: H) where H: Handler {
+        self.routes.insert(path, Box::new(handler));
+    }
+}
+
+impl Handler for Router {
+    fn handle(&self, req: &mut Request) -> IronResult<Response> {
+        match self.routes.get(&req.url.path.join("/")) {
+            Some(handler) => handler.handle(req),
+            None => Ok(Response::with(status::NotFound))
+        }
+    }
+}
+
+fn serve() {
+    let mut router = Router::new();
+
+    router.add_route("".to_string(), |_: &mut Request| {
+        Ok(Response::with((status::Ok, Template::new("index", ()))))
+    });
+
+    router.add_route("list".to_string(), |_: &mut Request| {
+        let mut obj_dir = get_scrib_home();
+        obj_dir.push("objects");
+        let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+
+        entries.sort_by(|a, b| {
+            let mtime_a = a.metadata().unwrap().mtime();
+            let mtime_b = b.metadata().unwrap().mtime();
+            mtime_b.cmp(&mtime_a)
+        });
+
+        let mut json = String::from("[");
+        for entry in &entries {
+            let file_name = entry.file_name();
+
+            let content = {
+                let file = File::open(entry.path()).unwrap();
+                let mut buf: Vec<u8> = Vec::new();
+                file.take(80).read_to_end(&mut buf).unwrap();
+                match String::from_utf8(buf.clone()) {
+                    Ok(string) => string.lines().next().unwrap().to_owned(),
+                    Err(_) => {
+                        let mut string = String::new();
+                        for b in &buf[0..20] {
+                            string.push_str(&format!("\\\\x{:x}", b));
+                        }
+                        string
+                    },
+                }
+            };
+
+            json.push_str(&format!(r#"{{"id":"{}","content":"{}"}},"#,
+                &file_name.to_str().unwrap(),
+                &content));
+        }
+        if entries.len() > 1 {
+            json.pop();
+        }
+        json.push(']');
+        Ok(Response::with((status::Ok, json)))
+    });
+
+    let mut chain = Chain::new(router);
+    let mut hbse = HandlebarsEngine::new2();
+    hbse.add(Box::new(DirectorySource::new("templates/", ".hbs")));
+    if let Err(r) = hbse.reload() {
+        panic!("{}", r.description());
+    }
+
+    let hbse_ref = Arc::new(hbse);
+    hbse_ref.watch("templates/");
+
+    chain.link_after(hbse_ref);
+    Iron::new(chain).http("localhost:3000").unwrap();
+}
+
 fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
@@ -174,5 +277,8 @@ fn main() {
     }
     else if args.cmd_list {
         list();
+    }
+    else if args.cmd_serve {
+        serve();
     }
 }

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Scrib</title>
+    <style>
+      .card {
+          display: inline-block;
+          background: #ffffff;
+          box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+          width: 6em;
+          height: 8em;
+          overflow: hidden;
+          padding: 0.5em;
+          margin: 1em;
+          border: 1px solid #ccc;
+      }
+      #prompt-box {
+          margin-left: auto;
+          margin-right: auto;
+          width: 24em;
+      }
+      #prompt {
+          padding: 0.25em 0.5em;
+          font-size: 1.4em;
+          width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main">
+      <div id="prompt-box">
+        <input id="prompt" type="text">
+      </div>
+      <div id="card-holder">
+      </div>
+    </div>
+    <script>
+      function update(data) {
+          var card_holder = document.querySelector('#card-holder');
+          for (var i = 0; i < data.length; ++i) {
+              var scrib = data[i];
+              var card = document.createElement('div');
+              card.classList.add('card');
+              card.innerText = scrib.content;
+              card_holder.appendChild(card);
+          }
+          var prompt = document.querySelector('#prompt');
+          prompt.addEventListener('keypress', function(e) {
+              if (e.which == 13) {
+                  var input = this.value;
+                  if (input.substr(0, 1) === '/') {
+                      var commandline = input.substr(1);
+                      var parsed_commandline = commandline.split(/ +/g);
+                      var command = parsed_commandline.shift();
+                      var args = parsed_commandline;
+                      if (command === 'find') {
+                          var card_holder = document.querySelector('#card-holder');
+                          var cards = card_holder.querySelectorAll('.card');
+                          for (var i = 0; i < cards.length; ++i) {
+                              cards[i].remove();
+                          }
+                          // delete cards
+                          // add matched scribs as cards
+                          for (var i = 0; i < data.length; ++i) {
+                              var scrib = data[i];
+                              if (args.every(function(arg) { return scrib.content.match(arg); })) {
+                                  var card = document.createElement('div');
+                                  card.classList.add('card');
+                                  card.innerText = scrib.content;
+                                  card_holder.appendChild(card);
+                              }
+                          }
+                      }
+                      else {
+                          console.log('unknown command');
+                      }
+                  }
+                  else {
+                      // Invoke 'add' API
+                  }
+              }
+          });
+      }
+      // Invoke 'load' API
+      var data;
+      var req = new XMLHttpRequest();
+      req.open('GET', '/list', true);
+      req.onload = function() {
+          if (this.status >= 200 && this.status < 400) {
+              data = JSON.parse(this.response);
+              update(data);
+          }
+          else {
+          }
+      };
+      req.onerror = function() {
+      };
+      req.send();
+    </script>
+  </body>
+</html>
