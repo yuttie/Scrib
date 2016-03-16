@@ -2,11 +2,11 @@ extern crate crypto;
 extern crate docopt;
 extern crate rustc_serialize;
 extern crate iron;
+extern crate router;
 extern crate handlebars_iron as hbs;
 
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
-use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fs::{self, File};
@@ -17,9 +17,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use docopt::Docopt;
-use iron::{Handler};
 use iron::prelude::*;
 use iron::status;
+use router::Router;
 use hbs::{Template, HandlebarsEngine, DirectorySource};
 #[cfg(feature = "watch")]
 use hbs::Watchable;
@@ -169,38 +169,14 @@ fn list() {
     }
 }
 
-struct Router {
-    // Routes here are simply matched with the url path.
-    routes: HashMap<String, Box<Handler>>
-}
-
-impl Router {
-    fn new() -> Self {
-        Router { routes: HashMap::new() }
-    }
-
-    fn add_route<H>(&mut self, path: String, handler: H) where H: Handler {
-        self.routes.insert(path, Box::new(handler));
-    }
-}
-
-impl Handler for Router {
-    fn handle(&self, req: &mut Request) -> IronResult<Response> {
-        match self.routes.get(&req.url.path.join("/")) {
-            Some(handler) => handler.handle(req),
-            None => Ok(Response::with(status::NotFound))
-        }
-    }
-}
-
 fn serve() {
     let mut router = Router::new();
 
-    router.add_route("".to_string(), |_: &mut Request| {
+    router.get("/", |_: &mut Request| {
         Ok(Response::with((status::Ok, Template::new("index", ()))))
     });
 
-    router.add_route("list".to_string(), |_: &mut Request| {
+    router.get("/list", |_: &mut Request| {
         let mut obj_dir = get_scrib_home();
         obj_dir.push("objects");
         let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
