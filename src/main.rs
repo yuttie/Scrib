@@ -172,51 +172,8 @@ fn list() {
 fn serve() {
     let mut router = Router::new();
 
-    router.get("/", |_: &mut Request| {
-        Ok(Response::with((status::Ok, Template::new("index", ()))))
-    });
-
-    router.get("/list", |_: &mut Request| {
-        let mut obj_dir = get_scrib_home();
-        obj_dir.push("objects");
-        let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
-
-        entries.sort_by(|a, b| {
-            let mtime_a = a.metadata().unwrap().mtime();
-            let mtime_b = b.metadata().unwrap().mtime();
-            mtime_b.cmp(&mtime_a)
-        });
-
-        let mut json = String::from("[");
-        for entry in &entries {
-            let file_name = entry.file_name();
-
-            let content = {
-                let file = File::open(entry.path()).unwrap();
-                let mut buf: Vec<u8> = Vec::new();
-                file.take(80).read_to_end(&mut buf).unwrap();
-                match String::from_utf8(buf.clone()) {
-                    Ok(string) => string.lines().next().unwrap().to_owned(),
-                    Err(_) => {
-                        let mut string = String::new();
-                        for b in &buf[0..20] {
-                            string.push_str(&format!("\\\\x{:x}", b));
-                        }
-                        string
-                    },
-                }
-            };
-
-            json.push_str(&format!(r#"{{"id":"{}","content":"{}"}},"#,
-                &file_name.to_str().unwrap(),
-                &content));
-        }
-        if entries.len() > 1 {
-            json.pop();
-        }
-        json.push(']');
-        Ok(Response::with((status::Ok, json)))
-    });
+    router.get("/", handle_root);
+    router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
     let mut hbse = HandlebarsEngine::new2();
@@ -230,6 +187,52 @@ fn serve() {
 
     chain.link_after(hbse_ref);
     Iron::new(chain).http("localhost:3000").unwrap();
+}
+
+fn handle_root(_: &mut Request) -> IronResult<Response> {
+    Ok(Response::with((status::Ok, Template::new("index", ()))))
+}
+
+fn handle_list(_: &mut Request) -> IronResult<Response> {
+    let mut obj_dir = get_scrib_home();
+    obj_dir.push("objects");
+    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+
+    entries.sort_by(|a, b| {
+        let mtime_a = a.metadata().unwrap().mtime();
+        let mtime_b = b.metadata().unwrap().mtime();
+        mtime_b.cmp(&mtime_a)
+    });
+
+    let mut json = String::from("[");
+    for entry in &entries {
+        let file_name = entry.file_name();
+
+        let content = {
+            let file = File::open(entry.path()).unwrap();
+            let mut buf: Vec<u8> = Vec::new();
+            file.take(80).read_to_end(&mut buf).unwrap();
+            match String::from_utf8(buf.clone()) {
+                Ok(string) => string.lines().next().unwrap().to_owned(),
+                Err(_) => {
+                    let mut string = String::new();
+                    for b in &buf[0..20] {
+                        string.push_str(&format!("\\\\x{:x}", b));
+                    }
+                    string
+                },
+            }
+        };
+
+        json.push_str(&format!(r#"{{"id":"{}","content":"{}"}},"#,
+                               &file_name.to_str().unwrap(),
+                               &content));
+    }
+    if entries.len() > 1 {
+        json.pop();
+    }
+    json.push(']');
+    Ok(Response::with((status::Ok, json)))
 }
 
 fn main() {
