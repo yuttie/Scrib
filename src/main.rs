@@ -14,6 +14,7 @@ use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::PathBuf;
+#[cfg(feature = "watch")]
 use std::sync::Arc;
 
 use docopt::Docopt;
@@ -169,6 +170,7 @@ fn list() {
     }
 }
 
+#[cfg(feature = "watch")]
 fn serve() {
     let mut router = Router::new();
 
@@ -186,6 +188,24 @@ fn serve() {
     hbse_ref.watch("templates/");
 
     chain.link_after(hbse_ref);
+    Iron::new(chain).http("localhost:3000").unwrap();
+}
+
+#[cfg(not(feature = "watch"))]
+fn serve() {
+    let mut router = Router::new();
+
+    router.get("/", handle_root);
+    router.get("/list", handle_list);
+
+    let mut chain = Chain::new(router);
+    let mut hbse = HandlebarsEngine::new2();
+    hbse.add(Box::new(DirectorySource::new("templates/", ".hbs")));
+    if let Err(r) = hbse.reload() {
+        panic!("{}", r.description());
+    }
+
+    chain.link_after(hbse);
     Iron::new(chain).http("localhost:3000").unwrap();
 }
 
