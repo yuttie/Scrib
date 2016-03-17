@@ -177,6 +177,7 @@ fn serve() {
     let mut router = Router::new();
 
     router.get("/", handle_root);
+    router.post("/add", handle_add);
     router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
@@ -198,6 +199,7 @@ fn serve() {
     let mut router = Router::new();
 
     router.get("/", handle_root);
+    router.post("/add", handle_add);
     router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
@@ -213,6 +215,13 @@ fn serve() {
 
 fn handle_root(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, Template::new("index", ()))))
+}
+
+fn handle_add(req: &mut Request) -> IronResult<Response> {
+    let mut buf = String::new();
+    req.body.read_to_string(&mut buf).unwrap();
+    add(&buf);
+    Ok(Response::with((status::Ok, "true")))
 }
 
 fn handle_list(_: &mut Request) -> IronResult<Response> {
