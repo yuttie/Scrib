@@ -36,8 +36,79 @@
       </div>
     </div>
     <script>
-      function update(data) {
+      // APIs
+      function add(content, callback) {
+          // Invoke 'add' API
+          var req = new XMLHttpRequest();
+          req.open('POST', '/add', true);
+          req.setRequestHeader('Content-Type', 'text/plain');
+          req.onload = function() {
+              if (this.status >= 200 && this.status < 400) {
+                  var data = JSON.parse(this.response);
+                  if (data === true) {
+                      callback();
+                  }
+                  else {
+                  }
+              }
+              else {
+              }
+          };
+          req.onerror = function() {
+          };
+          req.send(content);
+      }
+
+      function list(callback) {
+          // Invoke 'list' API
+          var req = new XMLHttpRequest();
+          req.open('GET', '/list', true);
+          req.onload = function() {
+              if (this.status >= 200 && this.status < 400) {
+                  var data = JSON.parse(this.response);
+                  callback(data);
+              }
+              else {
+              }
+          };
+          req.onerror = function() {
+          };
+          req.send();
+      }
+
+      // Commands
+      function dispatch(cmd, args) {
+          if (cmd === 'find') {
+              find(args);
+          }
+          else {
+              console.log('unknown command');
+          }
+      }
+
+      function find(queries) {
+          list(function(data) {
+              var filtered_data = [];
+              // add matched scribs
+              for (var i = 0; i < data.length; ++i) {
+                  var scrib = data[i];
+                  if (queries.every(function(arg) { return scrib.content.match(arg); })) {
+                      filtered_data.push(scrib);
+                  }
+              }
+              reload_data(filtered_data);
+          });
+      }
+
+      // UI
+      function reload_data(data) {
           var card_holder = document.querySelector('#card-holder');
+          // delete cards
+          var cards = card_holder.querySelectorAll('.card');
+          for (var i = 0; i < cards.length; ++i) {
+              cards[i].remove();
+          }
+          // add cards
           for (var i = 0; i < data.length; ++i) {
               var scrib = data[i];
               var card = document.createElement('div');
@@ -45,74 +116,29 @@
               card.innerText = scrib.content;
               card_holder.appendChild(card);
           }
-          var prompt = document.querySelector('#prompt');
-          prompt.addEventListener('keypress', function(e) {
-              if (e.which == 13) {
-                  var input = this.value;
-                  if (input.substr(0, 1) === '/') {
-                      var commandline = input.substr(1);
-                      var parsed_commandline = commandline.split(/ +/g);
-                      var command = parsed_commandline.shift();
-                      var args = parsed_commandline;
-                      if (command === 'find') {
-                          var card_holder = document.querySelector('#card-holder');
-                          // delete cards
-                          var cards = card_holder.querySelectorAll('.card');
-                          for (var i = 0; i < cards.length; ++i) {
-                              cards[i].remove();
-                          }
-                          // add matched scribs as cards
-                          for (var i = 0; i < data.length; ++i) {
-                              var scrib = data[i];
-                              if (args.every(function(arg) { return scrib.content.match(arg); })) {
-                                  var card = document.createElement('div');
-                                  card.classList.add('card');
-                                  card.innerText = scrib.content;
-                                  card_holder.appendChild(card);
-                              }
-                          }
-                      }
-                      else {
-                          console.log('unknown command');
-                      }
-                  }
-                  else {
-                      // Invoke 'add' API
-                      var req = new XMLHttpRequest();
-                      req.open('POST', '/add', true);
-                      req.setRequestHeader('Content-Type', 'text/plain');
-                      req.onload = function() {
-                          if (this.status >= 200 && this.status < 400) {
-                              var data = JSON.parse(this.response);
-                              if (data === true) {
-                              }
-                              else {
-                              }
-                          }
-                          else {
-                          }
-                      };
-                      req.onerror = function() {
-                      };
-                      req.send(input);
-                  }
-              }
-          });
       }
-      // Invoke 'load' API
-      var req = new XMLHttpRequest();
-      req.open('GET', '/list', true);
-      req.onload = function() {
-          if (this.status >= 200 && this.status < 400) {
-              var data = JSON.parse(this.response);
-              update(data);
+
+      var prompt = document.querySelector('#prompt');
+      prompt.addEventListener('keypress', function(e) {
+          if (e.which == 13) {
+              var input = this.value;
+              if (input.substr(0, 1) === '/') {
+                  var commandline = input.substr(1);
+                  var parsed_commandline = commandline.split(/ +/g);
+                  var command = parsed_commandline.shift();
+                  var args = parsed_commandline;
+                  dispatch(command, args);
+              }
+              else if (input.length > 0) {
+                  add(input, function() { list(reload_data); });
+              }
+              else {
+                  list(reload_data);
+              }
           }
-          else {
-          }
-      };
-      req.onerror = function() {
-      };
-      req.send();
+      });
+
+      list(reload_data);
     </script>
   </body>
 </html>
