@@ -4,6 +4,8 @@ extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
 extern crate handlebars_iron as hbs;
+extern crate serde;
+extern crate serde_json;
 
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
@@ -228,25 +230,25 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
     for entry in &entries {
         let file_name = entry.file_name();
 
-        let content = {
-            let file = File::open(entry.path()).unwrap();
-            let mut buf: Vec<u8> = Vec::new();
-            file.take(80).read_to_end(&mut buf).unwrap();
-            match String::from_utf8(buf.clone()) {
-                Ok(string) => string.lines().next().unwrap().to_owned(),
-                Err(_) => {
-                    let mut string = String::new();
-                    for b in &buf[0..20] {
-                        string.push_str(&format!("\\\\x{:x}", b));
-                    }
-                    string
-                },
-            }
-        };
-
-        json.push_str(&format!(r#"{{"id":"{}","content":"{}"}},"#,
-                               &file_name.to_str().unwrap(),
-                               &content));
+        let mut file = File::open(entry.path()).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf).unwrap();
+        match String::from_utf8(buf.clone()) {
+            Ok(content) => {
+                json.push_str(&format!(r#"{{"id":{},"content":{}}},"#,
+                                        &serde_json::to_string(&file_name.to_str().unwrap()).unwrap(),
+                                        &serde_json::to_string(&content).unwrap()));
+            },
+            Err(_) => {
+                let mut content = String::new();
+                for b in &buf[0..20] {
+                    content.push_str(&format!("\\u{:04x}", b));
+                }
+                json.push_str(&format!(r#"{{"id":{},"content":"{}"}},"#,
+                                        &serde_json::to_string(&file_name.to_str().unwrap()).unwrap(),
+                                        &content));
+            },
+        }
     }
     if entries.len() > 1 {
         json.pop();
