@@ -56,11 +56,11 @@
                       var args = parsed_commandline;
                       if (command === 'find') {
                           var card_holder = document.querySelector('#card-holder');
+                          // delete cards
                           var cards = card_holder.querySelectorAll('.card');
                           for (var i = 0; i < cards.length; ++i) {
                               cards[i].remove();
                           }
-                          // delete cards
                           // add matched scribs as cards
                           for (var i = 0; i < data.length; ++i) {
                               var scrib = data[i];
