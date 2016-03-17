@@ -83,12 +83,11 @@
           });
       }
       // Invoke 'load' API
-      var data;
       var req = new XMLHttpRequest();
       req.open('GET', '/list', true);
       req.onload = function() {
           if (this.status >= 200 && this.status < 400) {
-              data = JSON.parse(this.response);
+              var data = JSON.parse(this.response);
               update(data);
           }
           else {
