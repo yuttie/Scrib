@@ -129,7 +129,8 @@
                   this.classList.toggle('selected');
               });
               card.classList.add('card');
-              card.innerText = scrib.content;
+              var text = document.createTextNode(scrib.content);
+              card.appendChild(text);
               card_holder.appendChild(card);
           }
       }
