@@ -4,6 +4,7 @@ extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
 extern crate handlebars_iron as hbs;
+extern crate scraper;
 extern crate serde;
 extern crate serde_json;
 
@@ -26,6 +27,8 @@ use router::Router;
 use hbs::{Template, HandlebarsEngine, DirectorySource};
 #[cfg(feature = "watch")]
 use hbs::Watchable;
+use scraper::{ElementRef, Html, Selector};
+use scraper::node::Node;
 
 
 
@@ -37,6 +40,7 @@ Usage:
     scrib tag <tag> <hash>
     scrib list
     scrib serve
+    scrib import-keep <file>...
     scrib (-h | --help)
     scrib --version
 
@@ -51,9 +55,11 @@ struct Args {
     cmd_tag:   bool,
     cmd_list:  bool,
     cmd_serve: bool,
+    cmd_import_keep: bool,
     arg_text:  Vec<String>,
     arg_tag:   String,
     arg_hash:  String,
+    arg_file:  Vec<String>,
 }
 
 fn get_scrib_home() -> PathBuf {
@@ -266,6 +272,53 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, json)))
 }
 
+fn import_keep(fp: String) {
+    let mut html: String = String::new();
+    let mut file = File::open(fp).unwrap();
+    file.read_to_string(&mut html).unwrap();
+    let document = Html::parse_fragment(&html);
+
+    let heading_selector = Selector::parse(".note .heading").unwrap();
+    let title_selector   = Selector::parse(".note .title").unwrap();
+    let content_selector = Selector::parse(".note .content").unwrap();
+
+    let mut heading = document.select(&heading_selector);
+    let mut title   = document.select(&title_selector);
+    let mut content = document.select(&content_selector);
+
+    fn collect_texts(elem: ElementRef) -> String {
+        let mut text = String::new();
+        for child in elem.children() {
+            match *child.value() {
+                Node::Text(ref t) => text.push_str(&t),
+                Node::Element(ref e) => {
+                    if e.name.local.as_ref() == "br" {
+                        text.push('\n');
+                    }
+                    else {
+                        text.push_str(&collect_texts(ElementRef::wrap(child).unwrap()))
+                    }
+                },
+                _ => (),
+            }
+        }
+        text
+    }
+
+    match heading.next() {
+        Some(e) => println!("{}", collect_texts(e).trim()),
+        None => (),
+    }
+    match title.next() {
+        Some(e) => println!("{}", collect_texts(e)),
+        None => (),
+    }
+    match content.next() {
+        Some(e) => println!("{}", collect_texts(e)),
+        None => (),
+    }
+}
+
 fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
@@ -290,5 +343,11 @@ fn main() {
     }
     else if args.cmd_serve {
         serve();
+    }
+    else if args.cmd_import_keep {
+        for fp in args.arg_file {
+            println!("Importing from {}...", fp);
+            import_keep(fp);
+        }
     }
 }
