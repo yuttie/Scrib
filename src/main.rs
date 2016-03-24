@@ -278,13 +278,15 @@ fn import_keep(fp: String) {
     file.read_to_string(&mut html).unwrap();
     let document = Html::parse_fragment(&html);
 
-    let heading_selector = Selector::parse(".note .heading").unwrap();
-    let title_selector   = Selector::parse(".note .title").unwrap();
-    let content_selector = Selector::parse(".note .content").unwrap();
+    let heading_selector     = Selector::parse(".note .heading").unwrap();
+    let title_selector       = Selector::parse(".note .title").unwrap();
+    let content_selector     = Selector::parse(".note .content").unwrap();
+    let attachments_selector = Selector::parse(".note .attachments").unwrap();
 
-    let mut heading = document.select(&heading_selector);
-    let mut title   = document.select(&title_selector);
-    let mut content = document.select(&content_selector);
+    let mut heading     = document.select(&heading_selector);
+    let mut title       = document.select(&title_selector);
+    let mut content     = document.select(&content_selector);
+    let mut attachments = document.select(&attachments_selector);
 
     fn collect_texts(elem: ElementRef) -> String {
         let mut text = String::new();
@@ -305,16 +307,59 @@ fn import_keep(fp: String) {
         text
     }
 
-    match heading.next() {
-        Some(e) => println!("{}", collect_texts(e).trim()),
-        None => (),
+    fn parse_heading(elem: ElementRef) -> String {
+        collect_texts(elem).trim().to_owned()
     }
-    match title.next() {
-        Some(e) => println!("{}", collect_texts(e)),
-        None => (),
+
+    fn parse_title(elem: ElementRef) -> String {
+        collect_texts(elem)
     }
-    match content.next() {
-        Some(e) => println!("{}", collect_texts(e)),
+
+    fn parse_content(elem: ElementRef) -> String {
+        // div.content > (div.listitem > div.bullet + div.text)*
+        let listitem_selector = Selector::parse(".listitem").unwrap();
+        let mut listitems = elem.select(&listitem_selector).peekable();
+        if listitems.peek().is_some() {
+            // .content is a list
+            let mut content = String::new();
+            let bullet_selector = Selector::parse(".bullet").unwrap();
+            let text_selector = Selector::parse(".text").unwrap();
+            for listitem in listitems {
+                let bullet = listitem.select(&bullet_selector).next().unwrap();
+                let text = listitem.select(&text_selector).next().unwrap();
+                content.push_str(&collect_texts(bullet));
+                content.push(' ');
+                content.push_str(&collect_texts(text));
+                content.push('\n');
+            }
+            content
+        }
+        else {
+            collect_texts(elem)
+        }
+    }
+
+    fn parse_attachments(elem: ElementRef) -> Vec<String> {
+        let mut attachments: Vec<String> = Vec::new();
+        // div.attachments > ul > (li > img)*
+        let li_selector = Selector::parse("ul > li").unwrap();
+        let lis = elem.select(&li_selector);
+        for li in lis {
+            let img_selector = Selector::parse("img").unwrap();
+            let mut imgs = li.select(&img_selector);
+            match imgs.next() {
+                Some(img) => attachments.push(img.value().attr("src").unwrap().to_owned()),
+                None => (),
+            }
+        }
+        attachments
+    }
+
+    println!("{}", &parse_heading(heading.next().unwrap()));
+    println!("{}", &parse_title(title.next().unwrap()));
+    println!("{}", &parse_content(content.next().unwrap()));
+    match attachments.next() {
+        Some(e) => println!("{:?}", &parse_attachments(e)),
         None => (),
     }
 }
