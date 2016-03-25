@@ -276,17 +276,8 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
     let mut html: String = String::new();
     let mut file = File::open(fp).unwrap();
     file.read_to_string(&mut html).unwrap();
-    let document = Html::parse_fragment(&html);
-
-    let heading_selector     = Selector::parse(".note .heading").unwrap();
-    let title_selector       = Selector::parse(".note .title").unwrap();
-    let content_selector     = Selector::parse(".note .content").unwrap();
-    let attachments_selector = Selector::parse(".note .attachments").unwrap();
-
-    let mut heading     = document.select(&heading_selector);
-    let mut title       = document.select(&title_selector);
-    let mut content     = document.select(&content_selector);
-    let mut attachments = document.select(&attachments_selector);
+    let doc = Html::parse_document(&html);
+    parse_document(doc);
 
     fn collect_texts(elem: ElementRef) -> String {
         let mut text = String::new();
@@ -355,15 +346,27 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
         attachments
     }
 
-    println!("{}", &parse_heading(heading.next().unwrap()));
-    match title.next() {
-        Some(e) => println!("{}", &parse_title(e)),
-        None => (),
-    }
-    println!("{}", &parse_content(content.next().unwrap()));
-    match attachments.next() {
-        Some(e) => println!("{:?}", &parse_attachments(e)),
-        None => (),
+    fn parse_document(doc: Html) {
+        let heading_selector     = Selector::parse(".note .heading").unwrap();
+        let title_selector       = Selector::parse(".note .title").unwrap();
+        let content_selector     = Selector::parse(".note .content").unwrap();
+        let attachments_selector = Selector::parse(".note .attachments").unwrap();
+
+        let mut heading     = doc.select(&heading_selector);
+        let mut title       = doc.select(&title_selector);
+        let mut content     = doc.select(&content_selector);
+        let mut attachments = doc.select(&attachments_selector);
+
+        println!("{}", &parse_heading(heading.next().unwrap()));
+        match title.next() {
+            Some(e) => println!("{}", &parse_title(e)),
+            None => (),
+        }
+        println!("{}", &parse_content(content.next().unwrap()));
+        match attachments.next() {
+            Some(e) => println!("{:?}", &parse_attachments(e)),
+            None => (),
+        }
     }
 }
 
