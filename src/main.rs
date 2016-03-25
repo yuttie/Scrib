@@ -356,7 +356,10 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
     }
 
     println!("{}", &parse_heading(heading.next().unwrap()));
-    println!("{}", &parse_title(title.next().unwrap()));
+    match title.next() {
+        Some(e) => println!("{}", &parse_title(e)),
+        None => (),
+    }
     println!("{}", &parse_content(content.next().unwrap()));
     match attachments.next() {
         Some(e) => println!("{:?}", &parse_attachments(e)),
