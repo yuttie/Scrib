@@ -16,7 +16,7 @@ use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(feature = "watch")]
 use std::sync::Arc;
 
@@ -272,7 +272,7 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, json)))
 }
 
-fn import_keep(fp: String) {
+fn import_keep<P: AsRef<Path>>(fp: P) {
     let mut html: String = String::new();
     let mut file = File::open(fp).unwrap();
     file.read_to_string(&mut html).unwrap();
