@@ -272,12 +272,65 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, json)))
 }
 
+#[derive(Debug)]
+struct KeepNote {
+    heading:     String,
+    title:       String,
+    content:     String,
+    attachments: Vec<String>,
+}
+
+impl serde::Serialize for KeepNote {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: serde::Serializer
+    {
+        serializer.serialize_struct("KeepNote", KeepNoteMapVisitor {
+            value: self,
+            state: 0,
+        })
+    }
+}
+
+struct KeepNoteMapVisitor<'a> {
+    value: &'a KeepNote,
+    state: u8,
+}
+
+impl<'a> serde::ser::MapVisitor for KeepNoteMapVisitor<'a> {
+    fn visit<S>(&mut self, serializer: &mut S) -> Result<Option<()>, S::Error>
+        where S: serde::Serializer
+    {
+        match self.state {
+            0 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("heading", &self.value.heading))))
+            }
+            1 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("title", &self.value.title))))
+            }
+            2 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("content", &self.value.content))))
+            }
+            3 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("attachments", &self.value.attachments))))
+            }
+            _ => {
+                Ok(None)
+            }
+        }
+    }
+}
+
 fn import_keep<P: AsRef<Path>>(fp: P) {
     let mut html: String = String::new();
     let mut file = File::open(fp).unwrap();
     file.read_to_string(&mut html).unwrap();
     let doc = Html::parse_document(&html);
-    parse_document(doc);
+    let note = parse_document(doc);
+    println!("{}", serde_json::to_string_pretty(&note).unwrap());
 
     fn collect_texts(elem: ElementRef) -> String {
         let mut text = String::new();
@@ -346,27 +399,35 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
         attachments
     }
 
-    fn parse_document(doc: Html) {
+    fn parse_document(doc: Html) -> KeepNote {
         let heading_selector     = Selector::parse(".note .heading").unwrap();
         let title_selector       = Selector::parse(".note .title").unwrap();
         let content_selector     = Selector::parse(".note .content").unwrap();
         let attachments_selector = Selector::parse(".note .attachments").unwrap();
 
-        let mut heading     = doc.select(&heading_selector);
-        let mut title       = doc.select(&title_selector);
-        let mut content     = doc.select(&content_selector);
-        let mut attachments = doc.select(&attachments_selector);
+        let mut heading_elems     = doc.select(&heading_selector);
+        let mut title_elems       = doc.select(&title_selector);
+        let mut content_elems     = doc.select(&content_selector);
+        let mut attachments_elems = doc.select(&attachments_selector);
 
-        println!("{}", &parse_heading(heading.next().unwrap()));
-        match title.next() {
-            Some(e) => println!("{}", &parse_title(e)),
-            None => (),
-        }
-        println!("{}", &parse_content(content.next().unwrap()));
-        match attachments.next() {
-            Some(e) => println!("{:?}", &parse_attachments(e)),
-            None => (),
-        }
+        let heading = parse_heading(heading_elems.next().unwrap());
+        let title = match title_elems.next() {
+            Some(e) => parse_title(e),
+            None => "".to_string(),
+        };
+        let content = parse_content(content_elems.next().unwrap());
+        let attachments = match attachments_elems.next() {
+            Some(e) => parse_attachments(e),
+            None => vec![],
+        };
+
+        let note = KeepNote {
+            heading:     heading,
+            title:       title,
+            content:     content,
+            attachments: attachments,
+        };
+        note
     }
 }
 
