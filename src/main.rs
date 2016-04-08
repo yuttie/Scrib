@@ -81,7 +81,7 @@ fn init() {
     pathbuf.pop();
 }
 
-fn add(text: &str) {
+fn add(text: &str) -> String {
     let digest = {
         let mut hasher = Sha256::new();
         hasher.input_str(&text);
@@ -97,7 +97,7 @@ fn add(text: &str) {
     };
     file.write_all(text.as_bytes()).unwrap();
 
-    println!("{}", &digest);
+    digest
 }
 
 fn lookup_hash(hash: &str) -> Result<PathBuf, &str> {
@@ -445,7 +445,8 @@ fn main() {
         else {
             args.arg_text.join(" ")
         };
-        add(&text);
+        let hash = add(&text);
+        println!("{}", &hash);
     }
     else if args.cmd_tag {
         tag(&args.arg_tag, &args.arg_hash);
