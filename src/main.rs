@@ -330,7 +330,13 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
     file.read_to_string(&mut html).unwrap();
     let doc = Html::parse_document(&html);
     let note = parse_document(doc);
-    println!("{}", serde_json::to_string_pretty(&note).unwrap());
+
+    let json = serde_json::to_string_pretty(&note).unwrap();
+    let hash = add(&json);
+    println!("{}", &hash);
+
+    tag("parsable-as-json", &hash);
+    tag("imported-from-google-keep", &hash);
 
     fn collect_texts(elem: ElementRef) -> String {
         let mut text = String::new();
