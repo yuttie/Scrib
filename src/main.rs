@@ -253,6 +253,53 @@ fn handle_add(req: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, "true")))
 }
 
+#[derive(Debug)]
+struct Scribble {
+    id:      String,
+    content: String,
+    tags:    Vec<String>,
+}
+
+impl serde::Serialize for Scribble {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: serde::Serializer
+    {
+        serializer.serialize_struct("Scribble", ScribbleMapVisitor {
+            value: self,
+            state: 0,
+        })
+    }
+}
+
+struct ScribbleMapVisitor<'a> {
+    value: &'a Scribble,
+    state: u8,
+}
+
+impl<'a> serde::ser::MapVisitor for ScribbleMapVisitor<'a> {
+    fn visit<S>(&mut self, serializer: &mut S) -> Result<Option<()>, S::Error>
+        where S: serde::Serializer
+    {
+        match self.state {
+            0 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("id", &self.value.id))))
+            },
+            1 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("content", &self.value.content))))
+            },
+            2 => {
+                self.state += 1;
+                Ok(Some(try!(serializer.serialize_struct_elt("tags", &self.value.tags))))
+            },
+            _ => {
+                Ok(None)
+            },
+        }
+    }
+}
+
 fn handle_list(_: &mut Request) -> IronResult<Response> {
     let mut obj_dir = get_scrib_home();
     obj_dir.push("objects");
@@ -264,34 +311,35 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
         mtime_b.cmp(&mtime_a)
     });
 
-    let mut json = String::from("[");
+    let mut scribbles: Vec<Scribble> = Vec::new();
     for entry in &entries {
-        let file_name = entry.file_name();
+        let id = entry.file_name().into_string().unwrap();
 
         let mut file = File::open(entry.path()).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf).unwrap();
-        match String::from_utf8(buf.clone()) {
-            Ok(content) => {
-                json.push_str(&format!(r#"{{"id":{},"content":{}}},"#,
-                                        &serde_json::to_string(&file_name.to_str().unwrap()).unwrap(),
-                                        &serde_json::to_string(&content).unwrap()));
-            },
+        let content = match String::from_utf8(buf.clone()) {
+            Ok(content) => content,
             Err(_) => {
                 let mut content = String::new();
                 for b in &buf[0..20] {
                     content.push_str(&format!("\\u{:04x}", b));
                 }
-                json.push_str(&format!(r#"{{"id":{},"content":"{}"}},"#,
-                                        &serde_json::to_string(&file_name.to_str().unwrap()).unwrap(),
-                                        &content));
+                content
             },
-        }
+        };
+
+        let tags = tags_of(&id);
+
+        let scribble = Scribble {
+            id:      id,
+            content: content,
+            tags:    tags,
+        };
+        scribbles.push(scribble);
     }
-    if entries.len() > 1 {
-        json.pop();
-    }
-    json.push(']');
+
+    let json = serde_json::to_string(&scribbles).unwrap();
     Ok(Response::with((status::Ok, json)))
 }
 
