@@ -12,7 +12,7 @@ use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use std::env;
 use std::error::Error;
-use std::fs::{self, File};
+use std::fs::{self, DirEntry, File};
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
@@ -38,6 +38,7 @@ Let's Scribble!
 Usage:
     scrib add [<text>...]
     scrib tag <tag> <hash>
+    scrib tags-of <hash>
     scrib list
     scrib serve
     scrib import-keep <file>...
@@ -53,6 +54,7 @@ Options:
 struct Args {
     cmd_add:   bool,
     cmd_tag:   bool,
+    cmd_tags_of: bool,
     cmd_list:  bool,
     cmd_serve: bool,
     cmd_import_keep: bool,
@@ -176,6 +178,27 @@ fn list() {
             &file_name.to_str().unwrap()[0..8],
             &content);
     }
+}
+
+fn tags_of(hash: &str) -> Vec<String> {
+    let hash = lookup_hash(&hash).unwrap().file_name().unwrap().to_owned();
+
+    let mut tags_dir = get_scrib_home();
+    tags_dir.push("tags");
+    let tags_dir_entries: Vec<DirEntry> = tags_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+
+    let mut tags = Vec::new();
+    for tag_dir_entry in tags_dir_entries {
+        let tag = tag_dir_entry.file_name().into_string().unwrap();
+        let mut tag_path = tag_dir_entry.path();
+        tag_path.push(&hash);
+
+        if tag_path.exists() {
+            tags.push(tag.to_owned());
+        }
+    }
+
+    tags
 }
 
 #[cfg(feature = "watch")]
@@ -456,6 +479,11 @@ fn main() {
     }
     else if args.cmd_tag {
         tag(&args.arg_tag, &args.arg_hash);
+    }
+    else if args.cmd_tags_of {
+        for tag in tags_of(&args.arg_hash) {
+            println!("{}", &tag);
+        }
     }
     else if args.cmd_list {
         list();
