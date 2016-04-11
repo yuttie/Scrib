@@ -327,22 +327,22 @@ impl<'a> serde::ser::MapVisitor for KeepNoteMapVisitor<'a> {
             0 => {
                 self.state += 1;
                 Ok(Some(try!(serializer.serialize_struct_elt("heading", &self.value.heading))))
-            }
+            },
             1 => {
                 self.state += 1;
                 Ok(Some(try!(serializer.serialize_struct_elt("title", &self.value.title))))
-            }
+            },
             2 => {
                 self.state += 1;
                 Ok(Some(try!(serializer.serialize_struct_elt("content", &self.value.content))))
-            }
+            },
             3 => {
                 self.state += 1;
                 Ok(Some(try!(serializer.serialize_struct_elt("attachments", &self.value.attachments))))
-            }
+            },
             _ => {
                 Ok(None)
-            }
+            },
         }
     }
 }
