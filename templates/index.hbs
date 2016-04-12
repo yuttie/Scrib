@@ -42,6 +42,9 @@
           box-shadow: 0 0 8px rgba(0, 0, 0, 0.2),
                       0 1px 2px rgba(0, 0, 0, 0.4);
       }
+      .google-keep-note .title {
+          font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -133,8 +136,36 @@
                   this.classList.toggle('selected');
               });
               card.classList.add('card');
-              var text = document.createTextNode(scrib.content);
-              card.appendChild(text);
+
+              // rendering
+              if (scrib.tags.indexOf('parsable-as-json') >= 0 &&
+                  scrib.tags.indexOf('imported-from-google-keep'))
+              {
+                  var keep_note = JSON.parse(scrib.content);
+                  var title = document.createTextNode(keep_note.title);
+                  var content = document.createTextNode(keep_note.content);
+
+                  var note_elem = document.createElement('div');
+                  note_elem.classList.add('google-keep-note');
+
+                  if (title.length > 0) {
+                      var title_elem = document.createElement('div');
+                      title_elem.classList.add('title');
+                      title_elem.appendChild(title);
+                      note_elem.appendChild(title_elem);
+                  }
+
+                  var content_elem = document.createElement('div');
+                  content_elem.classList.add('content');
+                  content_elem.appendChild(content);
+                  note_elem.appendChild(content_elem);
+
+                  card.appendChild(note_elem);
+              }
+              else {
+                  var text = document.createTextNode(scrib.content);
+                  card.appendChild(text);
+              }
               card_holder.appendChild(card);
           }
       }
