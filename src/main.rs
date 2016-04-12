@@ -141,7 +141,7 @@ fn tag(tag: &str, hash: &str) {
     fs::create_dir_all(dest.as_path()).unwrap();
     dest.push(&hash);
 
-    symlink(&src, &dest).unwrap();
+    symlink(&src, &dest).unwrap_or(());
 }
 
 fn list() {
