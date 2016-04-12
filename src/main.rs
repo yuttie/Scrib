@@ -1,5 +1,7 @@
+extern crate chrono;
 extern crate crypto;
 extern crate docopt;
+extern crate filetime;
 extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
@@ -8,8 +10,10 @@ extern crate scraper;
 extern crate serde;
 extern crate serde_json;
 
+use chrono::*;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
+use filetime::*;
 use std::env;
 use std::error::Error;
 use std::fs::{self, DirEntry, File};
@@ -405,6 +409,17 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
     let json = serde_json::to_string_pretty(&note).unwrap();
     let hash = add(&json);
     println!("{}", &hash);
+
+    // Parse the heading as a local time
+    let note_mtime =
+        Local.datetime_from_str(&note.heading, "%b %d, %Y, %I:%M:%S %p").unwrap();
+    let timestamp: i64 = note_mtime.timestamp();
+    // Use it as timestamps of the object file
+    let mtime = FileTime::from_seconds_since_1970(timestamp as u64, 0);
+    let mut obj_path = get_scrib_home();
+    obj_path.push("objects");
+    obj_path.push(&hash);
+    set_file_times(&obj_path, mtime, mtime).unwrap();
 
     tag("parsable-as-json", &hash);
     tag("imported-from-google-keep", &hash);
