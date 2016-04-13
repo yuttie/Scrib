@@ -353,6 +353,7 @@ struct KeepNote {
     title:       String,
     content:     String,
     attachments: Vec<String>,
+    labels:      Vec<String>,
 }
 
 impl serde::Serialize for KeepNote {
@@ -423,6 +424,10 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
 
     tag("parsable-as-json", &hash);
     tag("imported-from-google-keep", &hash);
+    // Add note's labels as tags
+    for label in note.labels {
+        tag(&label, &hash);
+    }
 
     fn collect_texts(elem: ElementRef) -> String {
         let mut text = String::new();
@@ -491,16 +496,30 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
         attachments
     }
 
+    fn parse_labels(elem: ElementRef) -> Vec<String> {
+        let mut labels: Vec<String> = Vec::new();
+        // div.labels > span.label*
+        let label_selector = Selector::parse(".label").unwrap();
+        let label_elems = elem.select(&label_selector);
+        for label_elem in label_elems {
+            let label = collect_texts(label_elem);
+            labels.push(label);
+        }
+        labels
+    }
+
     fn parse_document(doc: Html) -> KeepNote {
         let heading_selector     = Selector::parse(".note .heading").unwrap();
         let title_selector       = Selector::parse(".note .title").unwrap();
         let content_selector     = Selector::parse(".note .content").unwrap();
         let attachments_selector = Selector::parse(".note .attachments").unwrap();
+        let labels_selector      = Selector::parse(".note .labels").unwrap();
 
         let mut heading_elems     = doc.select(&heading_selector);
         let mut title_elems       = doc.select(&title_selector);
         let mut content_elems     = doc.select(&content_selector);
         let mut attachments_elems = doc.select(&attachments_selector);
+        let mut labels_elems      = doc.select(&labels_selector);
 
         let heading = parse_heading(heading_elems.next().unwrap());
         let title = match title_elems.next() {
@@ -512,12 +531,17 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
             Some(e) => parse_attachments(e),
             None => vec![],
         };
+        let labels = match labels_elems.next() {
+            Some(e) => parse_labels(e),
+            None => vec![],
+        };
 
         let note = KeepNote {
             heading:     heading,
             title:       title,
             content:     content,
             attachments: attachments,
+            labels:      labels,
         };
         note
     }
