@@ -236,7 +236,7 @@ fn serve() {
     router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
-    let mut hbse = HandlebarsEngine::new2();
+    let mut hbse = HandlebarsEngine::new();
     hbse.add(Box::new(DirectorySource::new("templates/", ".hbs")));
     if let Err(r) = hbse.reload() {
         panic!("{}", r.description());
