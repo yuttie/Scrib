@@ -241,6 +241,7 @@ fn serve() {
     let hbse_ref = Arc::new(hbse);
     hbse_ref.watch("templates/");
 
+    writeln!(std::io::stderr(), "Server is running at: http://{}/", "localhost:3000").unwrap();
     chain.link_after(hbse_ref);
     Iron::new(chain).http("localhost:3000").unwrap();
 }
@@ -260,6 +261,7 @@ fn serve() {
         panic!("{}", r.description());
     }
 
+    writeln!(std::io::stderr(), "Server is running at: http://{}/", "localhost:3000").unwrap();
     chain.link_after(hbse);
     Iron::new(chain).http("localhost:3000").unwrap();
 }
