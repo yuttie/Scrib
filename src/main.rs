@@ -42,6 +42,7 @@ Let's Scribble!
 Usage:
     scrib add [<text>...]
     scrib tag <tag> <hash>
+    scrib tags
     scrib tags-of <hash>
     scrib list
     scrib serve
@@ -57,6 +58,7 @@ Options:
 struct Args {
     cmd_add:   bool,
     cmd_tag:   bool,
+    cmd_tags:  bool,
     cmd_tags_of: bool,
     cmd_list:  bool,
     cmd_serve: bool,
@@ -145,6 +147,23 @@ fn tag(tag: &str, hash: &str) {
 
     symlink(&src, &dest).unwrap_or(());
     println!("Added tag '{}' to {:?}", &tag, &hash);
+}
+
+fn tags() {
+    let mut obj_dir = get_scrib_home();
+    obj_dir.push("tags");
+    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+
+    entries.sort_by(|a, b| {
+        let mtime_a = a.metadata().unwrap().mtime();
+        let mtime_b = b.metadata().unwrap().mtime();
+        mtime_b.cmp(&mtime_a)
+    });
+
+    for entry in entries {
+        let dir_name = entry.file_name();
+        println!("{}", &dir_name.to_str().unwrap());
+    }
 }
 
 fn list() {
@@ -365,6 +384,9 @@ fn main() {
     }
     else if args.cmd_tag {
         tag(&args.arg_tag, &args.arg_hash);
+    }
+    else if args.cmd_tags {
+        tags();
     }
     else if args.cmd_tags_of {
         for tag in tags_of(&args.arg_hash) {
