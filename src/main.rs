@@ -45,7 +45,6 @@ Usage:
     scrib tags-of <hash>
     scrib list
     scrib serve
-    scrib import-keep <file>...
     scrib (-h | --help)
     scrib --version
 
@@ -61,7 +60,6 @@ struct Args {
     cmd_tags_of: bool,
     cmd_list:  bool,
     cmd_serve: bool,
-    cmd_import_keep: bool,
     arg_text:  Vec<String>,
     arg_tag:   String,
     arg_hash:  String,
@@ -348,218 +346,6 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((status::Ok, json)))
 }
 
-#[derive(Debug)]
-struct KeepNote {
-    heading:     String,
-    title:       String,
-    content:     String,
-    attachments: Vec<String>,
-    labels:      Vec<String>,
-}
-
-impl serde::Serialize for KeepNote {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
-        where S: serde::Serializer
-    {
-        serializer.serialize_struct("KeepNote", KeepNoteMapVisitor {
-            value: self,
-            state: 0,
-        })
-    }
-}
-
-struct KeepNoteMapVisitor<'a> {
-    value: &'a KeepNote,
-    state: u8,
-}
-
-impl<'a> serde::ser::MapVisitor for KeepNoteMapVisitor<'a> {
-    fn visit<S>(&mut self, serializer: &mut S) -> Result<Option<()>, S::Error>
-        where S: serde::Serializer
-    {
-        match self.state {
-            0 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("heading", &self.value.heading))))
-            },
-            1 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("title", &self.value.title))))
-            },
-            2 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("content", &self.value.content))))
-            },
-            3 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("attachments", &self.value.attachments))))
-            },
-            _ => {
-                Ok(None)
-            },
-        }
-    }
-}
-
-fn import_keep<P: AsRef<Path>>(fp: P) {
-    let mut html: String = String::new();
-    let mut file = File::open(fp).unwrap();
-    file.read_to_string(&mut html).unwrap();
-    let doc = Html::parse_document(&html);
-    let note = parse_document(doc);
-
-    let json = serde_json::to_string_pretty(&note).unwrap();
-    let hash = add(&json);
-    println!("{}", &hash);
-
-    // Parse the heading as a local time
-    let note_mtime =
-        Local.datetime_from_str(&note.heading, "%b %d, %Y, %I:%M:%S %p").unwrap();
-    let timestamp: i64 = note_mtime.timestamp();
-    // Use it as timestamps of the object file
-    let mtime = FileTime::from_seconds_since_1970(timestamp as u64, 0);
-    let mut obj_path = get_scrib_home();
-    obj_path.push("objects");
-    obj_path.push(&hash);
-    set_file_times(&obj_path, mtime, mtime).unwrap();
-
-    // Store attachments as separate objects
-    for attachment in note.attachments {
-        // attachment itself
-        let attachment_hash = add(&attachment);
-        tag("imported-from-google-keep", &attachment_hash);
-        tag("google-keep-attachment", &attachment_hash);
-        println!("attachment: {}", &attachment_hash);
-
-        let has_attachment_tag = "has-google-keep-attachment-".to_string() + &attachment_hash;
-        tag(&has_attachment_tag, &hash);
-    }
-
-    tag("parsable-as-json", &hash);
-    tag("imported-from-google-keep", &hash);
-    // Add note's labels as tags
-    for label in note.labels {
-        tag(&label, &hash);
-    }
-
-    fn collect_texts(elem: ElementRef) -> String {
-        let mut text = String::new();
-        for child in elem.children() {
-            match *child.value() {
-                Node::Text(ref t) => text.push_str(&t),
-                Node::Element(ref e) => {
-                    if e.name.local.as_ref() == "br" {
-                        text.push('\n');
-                    }
-                    else {
-                        text.push_str(&collect_texts(ElementRef::wrap(child).unwrap()))
-                    }
-                },
-                _ => (),
-            }
-        }
-        text
-    }
-
-    fn parse_heading(elem: ElementRef) -> String {
-        collect_texts(elem).trim().to_owned()
-    }
-
-    fn parse_title(elem: ElementRef) -> String {
-        collect_texts(elem)
-    }
-
-    fn parse_content(elem: ElementRef) -> String {
-        // div.content > (div.listitem > div.bullet + div.text)*
-        let listitem_selector = Selector::parse(".listitem").unwrap();
-        let mut listitems = elem.select(&listitem_selector).peekable();
-        if listitems.peek().is_some() {
-            // .content is a list
-            let mut content = String::new();
-            let bullet_selector = Selector::parse(".bullet").unwrap();
-            let text_selector = Selector::parse(".text").unwrap();
-            for listitem in listitems {
-                let bullet = listitem.select(&bullet_selector).next().unwrap();
-                let text = listitem.select(&text_selector).next().unwrap();
-                content.push_str(&collect_texts(bullet));
-                content.push(' ');
-                content.push_str(&collect_texts(text));
-                content.push('\n');
-            }
-            content
-        }
-        else {
-            collect_texts(elem)
-        }
-    }
-
-    fn parse_attachments(elem: ElementRef) -> Vec<String> {
-        let mut attachments: Vec<String> = Vec::new();
-        // div.attachments > ul > (li > img)*
-        let li_selector = Selector::parse("ul > li").unwrap();
-        let lis = elem.select(&li_selector);
-        for li in lis {
-            let img_selector = Selector::parse("img").unwrap();
-            let mut imgs = li.select(&img_selector);
-            match imgs.next() {
-                Some(img) => attachments.push(img.value().attr("src").unwrap().to_owned()),
-                None => (),
-            }
-        }
-        attachments
-    }
-
-    fn parse_labels(elem: ElementRef) -> Vec<String> {
-        let mut labels: Vec<String> = Vec::new();
-        // div.labels > span.label*
-        let label_selector = Selector::parse(".label").unwrap();
-        let label_elems = elem.select(&label_selector);
-        for label_elem in label_elems {
-            let label = collect_texts(label_elem);
-            labels.push(label);
-        }
-        labels
-    }
-
-    fn parse_document(doc: Html) -> KeepNote {
-        let heading_selector     = Selector::parse(".note .heading").unwrap();
-        let title_selector       = Selector::parse(".note .title").unwrap();
-        let content_selector     = Selector::parse(".note .content").unwrap();
-        let attachments_selector = Selector::parse(".note .attachments").unwrap();
-        let labels_selector      = Selector::parse(".note .labels").unwrap();
-
-        let mut heading_elems     = doc.select(&heading_selector);
-        let mut title_elems       = doc.select(&title_selector);
-        let mut content_elems     = doc.select(&content_selector);
-        let mut attachments_elems = doc.select(&attachments_selector);
-        let mut labels_elems      = doc.select(&labels_selector);
-
-        let heading = parse_heading(heading_elems.next().unwrap());
-        let title = match title_elems.next() {
-            Some(e) => parse_title(e),
-            None => "".to_string(),
-        };
-        let content = parse_content(content_elems.next().unwrap());
-        let attachments = match attachments_elems.next() {
-            Some(e) => parse_attachments(e),
-            None => vec![],
-        };
-        let labels = match labels_elems.next() {
-            Some(e) => parse_labels(e),
-            None => vec![],
-        };
-
-        let note = KeepNote {
-            heading:     heading,
-            title:       title,
-            content:     content,
-            attachments: attachments,
-            labels:      labels,
-        };
-        note
-    }
-}
-
 fn main() {
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
@@ -590,11 +376,5 @@ fn main() {
     }
     else if args.cmd_serve {
         serve();
-    }
-    else if args.cmd_import_keep {
-        for fp in args.arg_file {
-            println!("Importing from {}...", fp);
-            import_keep(fp);
-        }
     }
 }
