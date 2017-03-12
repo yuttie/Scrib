@@ -99,14 +99,14 @@
       // Commands
       function dispatch(cmd, args) {
           if (cmd === 'find') {
-              find(args);
+              cmd_find(args);
           }
           else {
               console.log('unknown command');
           }
       }
 
-      function find(queries) {
+      function cmd_find(queries) {
           list(function(data) {
               var filtered_data = [];
               // add matched scribs
