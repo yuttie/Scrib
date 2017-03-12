@@ -423,6 +423,18 @@ fn import_keep<P: AsRef<Path>>(fp: P) {
     obj_path.push(&hash);
     set_file_times(&obj_path, mtime, mtime).unwrap();
 
+    // Store attachments as separate objects
+    for attachment in note.attachments {
+        // attachment itself
+        let attachment_hash = add(&attachment);
+        tag("imported-from-google-keep", &attachment_hash);
+        tag("google-keep-attachment", &attachment_hash);
+        println!("attachment: {}", &attachment_hash);
+
+        let has_attachment_tag = "has-google-keep-attachment-".to_string() + &attachment_hash;
+        tag(&has_attachment_tag, &hash);
+    }
+
     tag("parsable-as-json", &hash);
     tag("imported-from-google-keep", &hash);
     // Add note's labels as tags
