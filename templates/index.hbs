@@ -182,7 +182,10 @@
                   dispatch(command, args);
               }
               else if (input.length > 0) {
-                  add(input, function() { list(reload_data); });
+                  add(input, function() {
+                      list(reload_data);
+                      this.value = '';
+                  });
               }
               else {
                   list(reload_data);
