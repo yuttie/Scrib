@@ -146,6 +146,7 @@ fn tag(tag: &str, hash: &str) {
     dest.push(&hash);
 
     symlink(&src, &dest).unwrap_or(());
+    println!("Added tag '{}' to {:?}", &tag, &hash);
 }
 
 fn list() {
