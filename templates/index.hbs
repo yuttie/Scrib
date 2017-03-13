@@ -96,10 +96,38 @@
           req.send();
       }
 
+      function tag(tag_name, targets, callback) {
+          // Invoke 'tag' API
+          var req = new XMLHttpRequest();
+          req.open('POST', '/tag', true);
+          req.setRequestHeader('Content-Type', 'application/json');
+          req.onload = function() {
+              if (this.status >= 200 && this.status < 400) {
+                  var data = JSON.parse(this.response);
+                  if (data === true) {
+                      callback();
+                  }
+                  else {
+                  }
+              }
+              else {
+              }
+          };
+          req.onerror = function() {
+          };
+          req.send(JSON.stringify({
+            tag: tag_name,
+            target_ids: targets,
+          }));
+      }
+
       // Commands
-      function dispatch(cmd, args) {
+      function dispatch(cmd, args, selection) {
           if (cmd === 'find') {
               cmd_find(args);
+          }
+          else if (cmd === 'tag') {
+              cmd_tag(args, selection);
           }
           else {
               console.log('unknown command');
@@ -117,6 +145,14 @@
                   }
               }
               reload_data(filtered_data);
+          });
+      }
+
+      function cmd_tag(args, selection) {
+          var tag_name = args[0];
+          tag(tag_name, selection, function(data) {
+              var prompt = document.querySelector('#prompt');
+              prompt.value = '';
           });
       }
 
@@ -154,7 +190,12 @@
                   var parsed_commandline = commandline.split(/ +/g);
                   var command = parsed_commandline.shift();
                   var args = parsed_commandline;
-                  dispatch(command, args);
+                  var selection = [];
+                  var selected_cards = document.querySelectorAll('.card.selected');
+                  for (var i = 0; i < selected_cards.length; ++i) {
+                      selection.push(selected_cards[i].dataset['id']);
+                  }
+                  dispatch(command, args, selection);
               }
               else if (input.length > 0) {
                   add(input, function() {

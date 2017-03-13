@@ -229,6 +229,7 @@ fn serve() {
 
     router.get("/", handle_root);
     router.post("/add", handle_add);
+    router.post("/tag", handle_tag);
     router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
@@ -252,6 +253,7 @@ fn serve() {
 
     router.get("/", handle_root);
     router.post("/add", handle_add);
+    router.post("/tag", handle_tag);
     router.get("/list", handle_list);
 
     let mut chain = Chain::new(router);
@@ -274,6 +276,17 @@ fn handle_add(req: &mut Request) -> IronResult<Response> {
     let mut buf = String::new();
     req.body.read_to_string(&mut buf).unwrap();
     add(&buf);
+    Ok(Response::with((status::Ok, "true")))
+}
+
+fn handle_tag(req: &mut Request) -> IronResult<Response> {
+    let arg: serde_json::Value = serde_json::from_reader(&mut req.body).unwrap();
+    let tag_name = arg.find("tag").unwrap().as_string().unwrap();
+    let target_ids = arg.find("target_ids").unwrap().as_array().unwrap();
+    for target_id in target_ids {
+        let target_id = target_id.as_string().unwrap();
+        tag(tag_name, target_id);
+    }
     Ok(Response::with((status::Ok, "true")))
 }
 
