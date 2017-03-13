@@ -139,6 +139,7 @@
 
               // rendering
               var text = document.createTextNode(scrib.content);
+              card.dataset['id'] = scrib.id;
               card.appendChild(text);
               card_holder.appendChild(card);
           }
