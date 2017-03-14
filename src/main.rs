@@ -1,26 +1,21 @@
-extern crate chrono;
 extern crate crypto;
 extern crate docopt;
-extern crate filetime;
 extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
 extern crate handlebars_iron as hbs;
-extern crate scraper;
 extern crate serde;
 extern crate serde_json;
 
-use chrono::*;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
-use filetime::*;
 use std::env;
 use std::error::Error;
 use std::fs::{self, DirEntry, File};
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 #[cfg(feature = "watch")]
 use std::sync::Arc;
 
@@ -31,8 +26,6 @@ use router::Router;
 use hbs::{Template, HandlebarsEngine, DirectorySource};
 #[cfg(feature = "watch")]
 use hbs::Watchable;
-use scraper::{ElementRef, Html, Selector};
-use scraper::node::Node;
 
 
 
