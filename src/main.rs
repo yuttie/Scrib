@@ -4,7 +4,8 @@ extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
 extern crate handlebars_iron as hbs;
-extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 
 use crypto::digest::Digest;
@@ -274,60 +275,20 @@ fn handle_add(req: &mut Request) -> IronResult<Response> {
 
 fn handle_tag(req: &mut Request) -> IronResult<Response> {
     let arg: serde_json::Value = serde_json::from_reader(&mut req.body).unwrap();
-    let tag_name = arg.find("tag").unwrap().as_string().unwrap();
-    let target_ids = arg.find("target_ids").unwrap().as_array().unwrap();
+    let tag_name = arg["tag"].as_str().unwrap();
+    let target_ids = arg["target_ids"].as_array().unwrap();
     for target_id in target_ids {
-        let target_id = target_id.as_string().unwrap();
+        let target_id = target_id.as_str().unwrap();
         tag(tag_name, target_id);
     }
     Ok(Response::with((status::Ok, "true")))
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Scribble {
     id:      String,
     content: String,
     tags:    Vec<String>,
-}
-
-impl serde::Serialize for Scribble {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
-        where S: serde::Serializer
-    {
-        serializer.serialize_struct("Scribble", ScribbleMapVisitor {
-            value: self,
-            state: 0,
-        })
-    }
-}
-
-struct ScribbleMapVisitor<'a> {
-    value: &'a Scribble,
-    state: u8,
-}
-
-impl<'a> serde::ser::MapVisitor for ScribbleMapVisitor<'a> {
-    fn visit<S>(&mut self, serializer: &mut S) -> Result<Option<()>, S::Error>
-        where S: serde::Serializer
-    {
-        match self.state {
-            0 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("id", &self.value.id))))
-            },
-            1 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("content", &self.value.content))))
-            },
-            2 => {
-                self.state += 1;
-                Ok(Some(try!(serializer.serialize_struct_elt("tags", &self.value.tags))))
-            },
-            _ => {
-                Ok(None)
-            },
-        }
-    }
 }
 
 fn handle_list(_: &mut Request) -> IronResult<Response> {
