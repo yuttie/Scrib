@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Yuta Taniguchi <yuta.taniguchi.y.t@gmail.com>"]
 
 [dependencies]
-docopt = "0.6"
+docopt = "0.7"
 rust-crypto = "0.2"
 rustc-serialize = "0.3"
 serde = "0.7"
