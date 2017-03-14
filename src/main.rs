@@ -221,10 +221,10 @@ fn tags_of(hash: &str) -> Vec<String> {
 fn serve() {
     let mut router = Router::new();
 
-    router.get("/", handle_root);
-    router.post("/add", handle_add);
-    router.post("/tag", handle_tag);
-    router.get("/list", handle_list);
+    router.get("/", handle_root, "home");
+    router.post("/add", handle_add, "add");
+    router.post("/tag", handle_tag, "tag");
+    router.get("/list", handle_list, "list");
 
     let mut chain = Chain::new(router);
     let mut hbse = HandlebarsEngine::new();
@@ -245,10 +245,10 @@ fn serve() {
 fn serve() {
     let mut router = Router::new();
 
-    router.get("/", handle_root);
-    router.post("/add", handle_add);
-    router.post("/tag", handle_tag);
-    router.get("/list", handle_list);
+    router.get("/", handle_root, "home");
+    router.post("/add", handle_add, "add");
+    router.post("/tag", handle_tag, "tag");
+    router.get("/list", handle_list, "list");
 
     let mut chain = Chain::new(router);
     let mut hbse = HandlebarsEngine::new();
