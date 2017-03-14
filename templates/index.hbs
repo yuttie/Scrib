@@ -15,6 +15,7 @@
       }
       .card {
           display: inline-block;
+          position: relative;
           background: #ffffff;
           box-shadow: 0 0 8px rgba(0, 0, 0, 0.2),
                       0 1px 2px rgba(0, 0, 0, 0.4);
@@ -25,6 +26,23 @@
           margin: 1em;
           border: 4px solid #fff;
           white-space: pre-wrap;
+      }
+      .card .footer {
+          position: absolute;
+          bottom: 0;
+          padding-top: 0.5em;
+          padding-bottom: 0.5em;
+          width: 100%;
+          word-break: break-word;
+          line-height: 1.8em;
+      }
+      .card .footer .tag {
+          background: #eee;
+          color: #aaa;
+          padding: 0.15em 0.4em;
+          border-radius: 0.4em;
+          bottom: 0;
+          margin: 0 0.5em;
       }
       .card.selected {
           border-color: #00c9ff;
@@ -174,9 +192,20 @@
               card.classList.add('card');
 
               // rendering
+              var footer = document.createElement('div');
+              footer.classList.add('footer')
+              for (var j = 0; j < scrib.tags.length; ++j) {
+                  console.log(tag_name);
+                  var tag_name = document.createTextNode(scrib.tags[j]);
+                  var tag = document.createElement('span');
+                  tag.appendChild(tag_name);
+                  tag.classList.add('tag')
+                  footer.appendChild(tag);
+              }
               var text = document.createTextNode(scrib.content);
               card.dataset['id'] = scrib.id;
               card.appendChild(text);
+              card.appendChild(footer);
               card_holder.appendChild(card);
           }
       }
