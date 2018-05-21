@@ -48,7 +48,7 @@ Options:
     --version   Show version.
 ";
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 struct Args {
     cmd_add:   bool,
     cmd_tag:   bool,
@@ -336,7 +336,7 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
 
 fn main() {
     let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.decode())
+                            .and_then(|d| d.deserialize())
                             .unwrap_or_else(|e| e.exit());
     init();
     if args.cmd_add {
