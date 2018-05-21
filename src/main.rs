@@ -1,6 +1,5 @@
 extern crate crypto;
 extern crate docopt;
-extern crate rustc_serialize;
 extern crate iron;
 extern crate router;
 extern crate handlebars_iron as hbs;
