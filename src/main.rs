@@ -42,7 +42,10 @@ enum Args {
         hash: String,
     },
     #[structopt(name = "list")]
-    List,
+    List {
+        #[structopt(short = "n", long = "size")]
+        size: Option<usize>,
+    },
     #[structopt(name = "serve")]
     Serve,
 }
@@ -318,7 +321,7 @@ fn main() {
                 println!("{}", &tag);
             }
         },
-        Args::List => list(None),
+        Args::List { size } => list(size),
         Args::Serve => serve(),
     }
 }
