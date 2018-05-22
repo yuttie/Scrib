@@ -1,12 +1,13 @@
 extern crate actix_web;
 extern crate crypto;
-extern crate docopt;
 extern crate env_logger;
 #[macro_use]
 extern crate log;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate structopt;
 
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
@@ -18,40 +19,32 @@ use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::{PathBuf};
 
 use actix_web::{http, server, App, HttpRequest, Json, fs::NamedFile, middleware::Logger};
-use docopt::Docopt;
+use structopt::StructOpt;
 
 
 
-const USAGE: &'static str = "
-Let's Scribble!
-
-Usage:
-    scrib add [<text>...]
-    scrib tag <tag> <hash>
-    scrib tags
-    scrib tags-of <hash>
-    scrib list
-    scrib serve
-    scrib (-h | --help)
-    scrib --version
-
-Options:
-    -h, --help  Show this message.
-    --version   Show version.
-";
-
-#[derive(Debug, Deserialize)]
-struct Args {
-    cmd_add:   bool,
-    cmd_tag:   bool,
-    cmd_tags:  bool,
-    cmd_tags_of: bool,
-    cmd_list:  bool,
-    cmd_serve: bool,
-    arg_text:  Vec<String>,
-    arg_tag:   String,
-    arg_hash:  String,
-    arg_file:  Vec<String>,
+#[derive(Debug, StructOpt)]
+#[structopt(name = "scrib", about = "Let's Scribble!")]
+enum Args {
+    #[structopt(name = "add")]
+    Add {
+        text: Vec<String>,
+    },
+    #[structopt(name = "tag")]
+    Tag {
+        tag: String,
+        hash: String,
+    },
+    #[structopt(name = "tags")]
+    Tags,
+    #[structopt(name = "tags-of")]
+    TagsOf {
+        hash: String,
+    },
+    #[structopt(name = "list")]
+    List,
+    #[structopt(name = "serve")]
+    Serve,
 }
 
 fn get_scrib_home() -> PathBuf {
@@ -303,37 +296,29 @@ fn handle_list(_: HttpRequest) -> actix_web::Result<Json<Vec<Scribble>>> {
 fn main() {
     env_logger::init();
 
-    let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.deserialize())
-                            .unwrap_or_else(|e| e.exit());
+    let args = Args::from_args();
     init();
-    if args.cmd_add {
-        let text = if args.arg_text.is_empty() {
-            let mut buf = String::new();
-            io::stdin().read_to_string(&mut buf).unwrap();
-            buf
-        }
-        else {
-            args.arg_text.join(" ")
-        };
-        let hash = add(&text);
-        println!("{}", &hash);
-    }
-    else if args.cmd_tag {
-        tag(&args.arg_tag, &args.arg_hash);
-    }
-    else if args.cmd_tags {
-        tags();
-    }
-    else if args.cmd_tags_of {
-        for tag in tags_of(&args.arg_hash) {
-            println!("{}", &tag);
-        }
-    }
-    else if args.cmd_list {
-        list(None);
-    }
-    else if args.cmd_serve {
-        serve();
+    match args {
+        Args::Add { text } => {
+            let text = if text.is_empty() {
+                let mut buf = String::new();
+                io::stdin().read_to_string(&mut buf).unwrap();
+                buf
+            }
+            else {
+                text.join(" ")
+            };
+            let hash = add(&text);
+            println!("{}", &hash);
+        },
+        Args::Tag { tag, hash } => ::tag(&tag, &hash),
+        Args::Tags => tags(),
+        Args::TagsOf { hash } => {
+            for tag in tags_of(&hash) {
+                println!("{}", &tag);
+            }
+        },
+        Args::List => list(None),
+        Args::Serve => serve(),
     }
 }
