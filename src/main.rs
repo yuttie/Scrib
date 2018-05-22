@@ -18,7 +18,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::{PathBuf};
 
-use actix_web::{http, server, App, HttpRequest, Json, fs::NamedFile, middleware::Logger};
+use actix_web::{http, server, App, HttpRequest, Json, Query, fs::NamedFile, middleware::Logger};
 use structopt::StructOpt;
 
 
@@ -247,6 +247,11 @@ fn handle_tag(req: Json<TagRequest>) -> actix_web::Result<Json<bool>> {
     Ok(Json(true))
 }
 
+#[derive(Debug, Deserialize)]
+struct ListRequest {
+    size: Option<usize>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Scribble {
     id:      String,
@@ -254,7 +259,7 @@ struct Scribble {
     tags:    Vec<String>,
 }
 
-fn handle_list(_: HttpRequest) -> actix_web::Result<Json<Vec<Scribble>>> {
+fn handle_list(req: Query<ListRequest>) -> actix_web::Result<Json<Vec<Scribble>>> {
     let mut obj_dir = get_scrib_home();
     obj_dir.push("objects");
     let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
@@ -265,8 +270,13 @@ fn handle_list(_: HttpRequest) -> actix_web::Result<Json<Vec<Scribble>>> {
         mtime_b.cmp(&mtime_a)
     });
 
+    let entries: &[_] = match req.size {
+        Some(n) => &entries[..n],
+        None => &entries[..],
+    };
+
     let mut scribbles: Vec<Scribble> = Vec::new();
-    for entry in &entries {
+    for entry in entries {
         let id = entry.file_name().into_string().unwrap();
 
         let mut file = File::open(entry.path()).unwrap();
