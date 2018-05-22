@@ -152,7 +152,7 @@ fn tags() {
     }
 }
 
-fn list() {
+fn list(size: Option<usize>) {
     let mut obj_dir = get_scrib_home();
     obj_dir.push("objects");
     let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
@@ -162,6 +162,11 @@ fn list() {
         let mtime_b = b.metadata().unwrap().mtime();
         mtime_b.cmp(&mtime_a)
     });
+
+    let entries: &[_] = match size {
+        Some(n) => &entries[..n],
+        None => &entries[..],
+    };
 
     for entry in entries {
         let file_name = entry.file_name();
@@ -326,7 +331,7 @@ fn main() {
         }
     }
     else if args.cmd_list {
-        list();
+        list(None);
     }
     else if args.cmd_serve {
         serve();
