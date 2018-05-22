@@ -1,6 +1,9 @@
 extern crate actix_web;
 extern crate crypto;
 extern crate docopt;
+extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -14,7 +17,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::{PathBuf};
 
-use actix_web::{http, server, App, HttpRequest, Json, fs::NamedFile};
+use actix_web::{http, server, App, HttpRequest, Json, fs::NamedFile, middleware::Logger};
 use docopt::Docopt;
 
 
@@ -208,9 +211,9 @@ fn tags_of(hash: &str) -> Vec<String> {
 
 fn serve() {
     const HOST_PORT: &str = "localhost:3000";
-    eprintln!("Server is running at: http://{}/", HOST_PORT);
     server::new(
         || App::new()
+            .middleware(Logger::default())
             .route("/", http::Method::GET, handle_root)
             .route("/add", http::Method::POST, handle_add)
             .route("/tag", http::Method::POST, handle_tag)
@@ -293,6 +296,8 @@ fn handle_list(_: HttpRequest) -> actix_web::Result<Json<Vec<Scribble>>> {
 }
 
 fn main() {
+    env_logger::init();
+
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.deserialize())
                             .unwrap_or_else(|e| e.exit());
