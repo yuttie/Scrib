@@ -1,31 +1,21 @@
+extern crate actix_web;
 extern crate crypto;
 extern crate docopt;
-extern crate iron;
-extern crate router;
-extern crate handlebars_iron as hbs;
+extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
 
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use std::env;
-use std::error::Error;
 use std::fs::{self, DirEntry, File};
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::{PathBuf};
-#[cfg(feature = "watch")]
-use std::sync::Arc;
 
+use actix_web::{http, server, App, HttpRequest, Json, fs::NamedFile};
 use docopt::Docopt;
-use iron::prelude::*;
-use iron::status;
-use router::Router;
-use hbs::{Template, HandlebarsEngine, DirectorySource};
-#[cfg(feature = "watch")]
-use hbs::Watchable;
 
 
 
@@ -216,71 +206,41 @@ fn tags_of(hash: &str) -> Vec<String> {
     tags
 }
 
-#[cfg(feature = "watch")]
 fn serve() {
-    let mut router = Router::new();
-
-    router.get("/", handle_root, "home");
-    router.post("/add", handle_add, "add");
-    router.post("/tag", handle_tag, "tag");
-    router.get("/list", handle_list, "list");
-
-    let mut chain = Chain::new(router);
-    let mut hbse = HandlebarsEngine::new();
-    hbse.add(Box::new(DirectorySource::new("templates/", ".hbs")));
-    if let Err(r) = hbse.reload() {
-        panic!("{}", r.description());
-    }
-
-    let hbse_ref = Arc::new(hbse);
-    hbse_ref.watch("templates/");
-
-    writeln!(std::io::stderr(), "Server is running at: http://{}/", "localhost:3000").unwrap();
-    chain.link_after(hbse_ref);
-    Iron::new(chain).http("localhost:3000").unwrap();
+    const HOST_PORT: &str = "localhost:3000";
+    eprintln!("Server is running at: http://{}/", HOST_PORT);
+    server::new(
+        || App::new()
+            .route("/", http::Method::GET, handle_root)
+            .route("/add", http::Method::POST, handle_add)
+            .route("/tag", http::Method::POST, handle_tag)
+            .route("/list", http::Method::GET, handle_list))
+        .bind(HOST_PORT).expect(&format!("Can not bind to {}", HOST_PORT))
+        .run();
 }
 
-#[cfg(not(feature = "watch"))]
-fn serve() {
-    let mut router = Router::new();
-
-    router.get("/", handle_root, "home");
-    router.post("/add", handle_add, "add");
-    router.post("/tag", handle_tag, "tag");
-    router.get("/list", handle_list, "list");
-
-    let mut chain = Chain::new(router);
-    let mut hbse = HandlebarsEngine::new();
-    hbse.add(Box::new(DirectorySource::new("templates/", ".hbs")));
-    if let Err(r) = hbse.reload() {
-        panic!("{}", r.description());
-    }
-
-    writeln!(std::io::stderr(), "Server is running at: http://{}/", "localhost:3000").unwrap();
-    chain.link_after(hbse);
-    Iron::new(chain).http("localhost:3000").unwrap();
+fn handle_root(_req: HttpRequest) -> actix_web::Result<NamedFile> {
+    Ok(NamedFile::open("static/index.html")?)
 }
 
-fn handle_root(_: &mut Request) -> IronResult<Response> {
-    Ok(Response::with((status::Ok, Template::new("index", ()))))
-}
-
-fn handle_add(req: &mut Request) -> IronResult<Response> {
+fn handle_add(mut req: HttpRequest) -> actix_web::Result<Json<bool>> {
     let mut buf = String::new();
-    req.body.read_to_string(&mut buf).unwrap();
+    req.read_to_string(&mut buf).unwrap();
     add(&buf);
-    Ok(Response::with((status::Ok, "true")))
+    Ok(Json(true))
 }
 
-fn handle_tag(req: &mut Request) -> IronResult<Response> {
-    let arg: serde_json::Value = serde_json::from_reader(&mut req.body).unwrap();
-    let tag_name = arg["tag"].as_str().unwrap();
-    let target_ids = arg["target_ids"].as_array().unwrap();
-    for target_id in target_ids {
-        let target_id = target_id.as_str().unwrap();
-        tag(tag_name, target_id);
+#[derive(Debug, Deserialize)]
+struct TagRequest {
+    tag: String,
+    target_ids: Vec<String>,
+}
+
+fn handle_tag(req: Json<TagRequest>) -> actix_web::Result<Json<bool>> {
+    for target_id in req.target_ids.iter() {
+        tag(&req.tag, &target_id);
     }
-    Ok(Response::with((status::Ok, "true")))
+    Ok(Json(true))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -290,7 +250,7 @@ struct Scribble {
     tags:    Vec<String>,
 }
 
-fn handle_list(_: &mut Request) -> IronResult<Response> {
+fn handle_list(_: HttpRequest) -> actix_web::Result<Json<Vec<Scribble>>> {
     let mut obj_dir = get_scrib_home();
     obj_dir.push("objects");
     let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
@@ -329,8 +289,7 @@ fn handle_list(_: &mut Request) -> IronResult<Response> {
         scribbles.push(scribble);
     }
 
-    let json = serde_json::to_string(&scribbles).unwrap();
-    Ok(Response::with((status::Ok, json)))
+    Ok(Json(scribbles))
 }
 
 fn main() {
