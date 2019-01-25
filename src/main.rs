@@ -61,10 +61,14 @@ fn handle_root(_req: HttpRequest) -> actix_web::Result<NamedFile> {
     Ok(NamedFile::open("static/index.html")?)
 }
 
-fn handle_add(mut req: HttpRequest) -> actix_web::Result<Json<bool>> {
-    let mut buf = String::new();
-    req.read_to_string(&mut buf).unwrap();
-    scrib::add(&buf);
+#[derive(Debug, Deserialize)]
+struct AddRequest {
+    body: String,
+    tags: Vec<String>,
+}
+
+fn handle_add(req: Json<AddRequest>) -> actix_web::Result<Json<bool>> {
+    scrib::add(&req.body);
     Ok(Json(true))
 }
 
