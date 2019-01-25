@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::{symlink, MetadataExt};
 use std::path::{PathBuf};
 
+use chrono::prelude::*;
 use sha2::{Sha256, Digest};
 
 
@@ -27,7 +28,13 @@ pub fn init() {
 }
 
 pub fn add(text: &str) -> String {
-    let digest = format!("{:x}", Sha256::digest(text.as_ref()));
+    let now = Utc::now();
+    let digest = {
+        let mut hasher = Sha256::new();
+        hasher.input(format!("{}", now.timestamp_nanos()));
+        hasher.input(text);
+        format!("{:x}", hasher.result())
+    };
 
     let mut file = {
         let mut pathbuf = get_scrib_home();
