@@ -222,6 +222,7 @@
 
       var prompt = document.querySelector('#prompt');
       prompt.addEventListener('keypress', function(e) {
+          let prompt = e.target;
           if (e.which == 13 && e.ctrlKey) {
               var input = this.value;
               if (input.substr(0, 1) === '/') {
@@ -239,7 +240,7 @@
               else if (input.length > 0) {
                   add(input, function() {
                       list(reload_data);
-                      this.value = '';
+                      prompt.value = '';
                   });
               }
               else {
