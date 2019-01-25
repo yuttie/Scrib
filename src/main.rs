@@ -1,5 +1,4 @@
 extern crate actix_web;
-extern crate crypto;
 extern crate env_logger;
 extern crate log;
 extern crate serde;
