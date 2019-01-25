@@ -222,7 +222,7 @@
 
       var prompt = document.querySelector('#prompt');
       prompt.addEventListener('keypress', function(e) {
-          if (e.which == 13) {
+          if (e.which == 13 && e.ctrlKey) {
               var input = this.value;
               if (input.substr(0, 1) === '/') {
                   var commandline = input.substr(1);
