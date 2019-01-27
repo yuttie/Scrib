@@ -80,7 +80,7 @@ struct ListRequest {
     size: Option<usize>,
 }
 
-fn handle_list((req, state): (Json<ListRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
+fn handle_list((req, state): (Query<ListRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
     state
         .db
         .send(List {
