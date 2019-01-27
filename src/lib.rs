@@ -19,7 +19,12 @@ use r2d2;
 use self::models::{Scribble, NewScribble, Tag, NewTag, Tagging};
 
 
-type Result<T> = std::result::Result<T, ()>;
+#[derive(Debug)]
+pub enum Error {
+    DatabaseError(diesel::result::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
@@ -55,8 +60,8 @@ pub fn create_scribble<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Scr
         .execute(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(_) => {
             let created = diesel::sql_query("SELECT * FROM scribbles WHERE rowid = last_insert_rowid();")
@@ -81,8 +86,8 @@ pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
         .execute(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(_) => {
             let created = diesel::sql_query("SELECT * FROM tags WHERE rowid = last_insert_rowid();")
@@ -104,8 +109,8 @@ pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a
         .execute(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(_) => {
             let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
@@ -122,8 +127,8 @@ pub fn tags(conn: &SqliteConnection) -> Result<Vec<Tag>> {
     let result = tags.load::<Tag>(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(selected) => {
             Ok(selected)
@@ -137,8 +142,8 @@ pub fn list(conn: &SqliteConnection, size: Option<usize>) -> Result<Vec<Scribble
     let result = scribbles.load::<Scribble>(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(selected) => {
             Ok(selected)
@@ -154,8 +159,8 @@ pub fn tags_of(conn: &SqliteConnection, scribble_id: i64) -> Result<Vec<Tag>> {
         .get_results(conn);
 
     match result {
-        Err(_) => {
-            Err(())
+        Err(e) => {
+            Err(Error::DatabaseError(e))
         },
         Ok(selected) => {
             Ok(selected)
