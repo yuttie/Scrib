@@ -64,7 +64,9 @@ fn main() {
         },
         Args::Tags => {
             let conn = scrib::establish_connection();
-            scrib::tags(&conn).unwrap();
+            for tag in scrib::tags(&conn).unwrap() {
+                println!("{}", &tag.text);
+            }
         },
         Args::TagsOf { scribble_id } => {
             let conn = scrib::establish_connection();
