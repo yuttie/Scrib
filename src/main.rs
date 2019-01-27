@@ -74,7 +74,9 @@ fn main() {
         },
         Args::List { size } => {
             let conn = scrib::establish_connection();
-            scrib::list(&conn, size);
+            for scribble in scrib::list(&conn, size).unwrap() {
+                println!("{:19}: {:?}", scribble.id, &scribble.text);
+            }
         },
         Args::Serve => {
             let pool = scrib::new_connection_pool();
