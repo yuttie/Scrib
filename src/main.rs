@@ -56,15 +56,15 @@ fn main() {
             };
 
             let conn = scrib::establish_connection();
-            let hash = scrib::create_scribble(&conn, &text);
+            scrib::create_scribble(&conn, &text).unwrap();
         },
         Args::Tag { tag, scribble_id } => {
             let conn = scrib::establish_connection();
-            scrib::tag_scribble(&conn, scribble_id, &tag);
+            scrib::tag_scribble(&conn, scribble_id, &tag).unwrap();
         },
         Args::Tags => {
             let conn = scrib::establish_connection();
-            scrib::tags(&conn);
+            scrib::tags(&conn).unwrap();
         },
         Args::TagsOf { scribble_id } => {
             let conn = scrib::establish_connection();
