@@ -154,7 +154,7 @@ pub fn list(conn: &SqliteConnection, size: Option<usize>) -> Result<Vec<Scribble
 pub fn tags_of(conn: &SqliteConnection, scribble_id: i64) -> Result<Vec<Tag>> {
     use diesel::sql_types::BigInt;
 
-    let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = ? AND taggings.tag_id = tag.id;")
+    let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = ? AND taggings.tag_id = tags.id;")
         .bind::<BigInt, _>(scribble_id)
         .get_results(conn);
 
