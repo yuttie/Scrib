@@ -22,6 +22,7 @@ use self::models::{Scribble, NewScribble, Tag, NewTag, Tagging};
 #[derive(Debug)]
 pub enum Error {
     DatabaseError(diesel::result::Error),
+    TagExists,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -87,7 +88,17 @@ pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
 
     match result {
         Err(e) => {
-            Err(Error::DatabaseError(e))
+            use diesel::result::Error as DieselError;
+            use diesel::result::DatabaseErrorKind;
+
+            match e {
+                DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
+                    Err(Error::TagExists)
+                },
+                _ => {
+                    Err(Error::DatabaseError(e))
+                },
+            }
         },
         Ok(_) => {
             let created = diesel::sql_query("SELECT * FROM tags WHERE rowid = last_insert_rowid();")
