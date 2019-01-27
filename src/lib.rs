@@ -112,22 +112,29 @@ pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
 pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a str) -> Result<Tagging> {
     use diesel::sql_types::{BigInt, Text};
 
-    let now = Utc::now();
-    let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES (?, ?, (SELECT id FROM tags WHERE text = ?));")
-        .bind::<BigInt, _>(now.timestamp_nanos())
-        .bind::<BigInt, _>(scribble_id)
-        .bind::<Text, _>(tag_text)
-        .execute(conn);
+    match create_tag(&conn, &tag_text) {
+        Ok(_) | Err(Error::TagExists) => {
+            let now = Utc::now();
+            let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES (?, ?, (SELECT id FROM tags WHERE text = ?));")
+                .bind::<BigInt, _>(now.timestamp_nanos())
+                .bind::<BigInt, _>(scribble_id)
+                .bind::<Text, _>(tag_text)
+                .execute(conn);
 
-    match result {
-        Err(e) => {
-            Err(Error::DatabaseError(e))
+            match result {
+                Err(e) => {
+                    Err(Error::DatabaseError(e))
+                },
+                Ok(_) => {
+                    let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
+                        .get_result(conn)
+                        .unwrap();
+                    Ok(created)
+                },
+            }
         },
-        Ok(_) => {
-            let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
-                .get_result(conn)
-                .unwrap();
-            Ok(created)
+        Err(e) => {
+            Err(e)
         },
     }
 }
