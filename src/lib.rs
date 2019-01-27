@@ -1,171 +1,164 @@
+#[macro_use]
+extern crate diesel;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+
+pub mod schema;
+pub mod models;
+pub mod server;
+
 use std::env;
-use std::fs::{self, DirEntry, File};
-use std::io::prelude::*;
-use std::os::unix::fs::{symlink, MetadataExt};
-use std::path::{PathBuf};
 
 use chrono::prelude::*;
-use sha2::{Sha256, Digest};
+use diesel::prelude::*;
+use diesel::r2d2::{ConnectionManager, Pool};
+use dotenv::dotenv;
+use r2d2;
+
+use self::models::{Scribble, NewScribble, Tag, NewTag, Tagging};
 
 
-pub fn get_scrib_home() -> PathBuf {
-    let mut pathbuf = env::home_dir().unwrap();
-    pathbuf.push(".scrib");
-    pathbuf
+type Result<T> = std::result::Result<T, ()>;
+
+pub fn establish_connection() -> SqliteConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+    SqliteConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn init() {
-    let mut pathbuf = get_scrib_home();
-    fs::create_dir_all(pathbuf.as_path()).unwrap();
+pub fn new_connection_pool() -> Pool<ConnectionManager<SqliteConnection>> {
+    dotenv().ok();
 
-    pathbuf.push("objects");
-    fs::create_dir_all(pathbuf.as_path()).unwrap();
-    pathbuf.pop();
-
-    pathbuf.push("tags");
-    fs::create_dir_all(pathbuf.as_path()).unwrap();
-    pathbuf.pop();
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+    let manager = ConnectionManager::<SqliteConnection>::new(database_url.as_str());
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("Failed to create pool.")
 }
 
-pub fn add(text: &str) -> String {
+pub fn create_scribble<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Scribble> {
+    use self::schema::scribbles;
+
     let now = Utc::now();
-    let digest = {
-        let mut hasher = Sha256::new();
-        hasher.input(format!("{}", now.timestamp_nanos()));
-        hasher.input(text);
-        format!("{:x}", hasher.result())
+    let new_scribble = NewScribble {
+        created_at: now.timestamp_nanos(),
+        text: text,
     };
 
-    let mut file = {
-        let mut pathbuf = get_scrib_home();
-        pathbuf.push("objects");
-        pathbuf.push(&digest);
+    let result = diesel::insert_into(scribbles::table)
+        .values(&new_scribble)
+        .execute(conn);
 
-        File::create(&pathbuf).unwrap()
-    };
-    file.write_all(text.as_bytes()).unwrap();
-
-    digest
-}
-
-pub fn lookup_hash(hash: &str) -> Result<PathBuf, &str> {
-    let mut pathbuf = get_scrib_home();
-    pathbuf.push("objects");
-
-    let mut candidates: Vec<PathBuf> = pathbuf.read_dir().unwrap().filter_map(|entry| {
-        let entry = entry.unwrap();
-        let file_name = entry.file_name().into_string().unwrap();
-        if file_name.starts_with(hash) {
-            Some(entry.path())
-        }
-        else {
-            None
-        }
-    }).collect();
-    if candidates.len() == 0 {
-        println!("Found no candidate.");
-        Err("Found no candidate.")
-    }
-    else if candidates.len() == 1 {
-        println!("Found a single candidate.");
-        Ok(candidates.swap_remove(0))
-    }
-    else {
-        Err("Too many candidates.")
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(_) => {
+            let created = diesel::sql_query("SELECT * FROM scribbles WHERE rowid = last_insert_rowid();")
+                .get_result(conn)
+                .unwrap();
+            Ok(created)
+        },
     }
 }
 
-pub fn tag(tag: &str, hash: &str) {
-    let hash = lookup_hash(&hash).unwrap().file_name().unwrap().to_owned();
+pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
+    use self::schema::tags;
 
-    let mut src = PathBuf::from("../../objects/");
-    src.push(&hash);
-
-    let mut dest = get_scrib_home();
-    dest.push("tags");
-    dest.push(&tag);
-    fs::create_dir_all(dest.as_path()).unwrap();
-    dest.push(&hash);
-
-    symlink(&src, &dest).unwrap_or(());
-    println!("Added tag '{}' to {:?}", &tag, &hash);
-}
-
-pub fn tags() {
-    let mut obj_dir = get_scrib_home();
-    obj_dir.push("tags");
-    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
-
-    entries.sort_by(|a, b| {
-        let mtime_a = a.metadata().unwrap().mtime();
-        let mtime_b = b.metadata().unwrap().mtime();
-        mtime_b.cmp(&mtime_a)
-    });
-
-    for entry in entries {
-        let dir_name = entry.file_name();
-        println!("{}", &dir_name.to_str().unwrap());
-    }
-}
-
-pub fn list(size: Option<usize>) {
-    let mut obj_dir = get_scrib_home();
-    obj_dir.push("objects");
-    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
-
-    entries.sort_by(|a, b| {
-        let mtime_a = a.metadata().unwrap().mtime();
-        let mtime_b = b.metadata().unwrap().mtime();
-        mtime_b.cmp(&mtime_a)
-    });
-
-    let entries: &[_] = match size {
-        Some(n) => &entries[..n],
-        None => &entries[..],
+    let now = Utc::now();
+    let new_tag = NewTag {
+        created_at: now.timestamp_nanos(),
+        text: text,
     };
 
-    for entry in entries {
-        let file_name = entry.file_name();
+    let result = diesel::insert_into(tags::table)
+        .values(&new_tag)
+        .execute(conn);
 
-        let content = {
-            let file = File::open(entry.path()).unwrap();
-            let mut buf: Vec<u8> = Vec::new();
-            file.take(80).read_to_end(&mut buf).unwrap();
-            match String::from_utf8(buf.clone()) {
-                Ok(string) => string.lines().next().unwrap().to_owned(),
-                Err(_) => {
-                    let mut string = String::new();
-                    for b in &buf[0..20] {
-                        string.push_str(&format!("\\x{:x}", b));
-                    }
-                    string
-                },
-            }
-        };
-
-        println!("{} {}",
-            &file_name.to_str().unwrap()[0..8],
-            &content);
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(_) => {
+            let created = diesel::sql_query("SELECT * FROM tags WHERE rowid = last_insert_rowid();")
+                .get_result(conn)
+                .unwrap();
+            Ok(created)
+        },
     }
 }
 
-pub fn tags_of(hash: &str) -> Vec<String> {
-    let hash = lookup_hash(&hash).unwrap().file_name().unwrap().to_owned();
+pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a str) -> Result<Tagging> {
+    use diesel::sql_types::{BigInt, Text};
 
-    let mut tags_dir = get_scrib_home();
-    tags_dir.push("tags");
-    let tags_dir_entries: Vec<DirEntry> = tags_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
+    let now = Utc::now();
+    let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES (?, ?, (SELECT id FROM tags WHERE text = ?));")
+        .bind::<BigInt, _>(now.timestamp_nanos())
+        .bind::<BigInt, _>(scribble_id)
+        .bind::<Text, _>(tag_text)
+        .execute(conn);
 
-    let mut tags = Vec::new();
-    for tag_dir_entry in tags_dir_entries {
-        let tag = tag_dir_entry.file_name().into_string().unwrap();
-        let mut tag_path = tag_dir_entry.path();
-        tag_path.push(&hash);
-
-        if tag_path.exists() {
-            tags.push(tag.to_owned());
-        }
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(_) => {
+            let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
+                .get_result(conn)
+                .unwrap();
+            Ok(created)
+        },
     }
+}
 
-    tags
+pub fn tags(conn: &SqliteConnection) -> Result<Vec<Tag>> {
+    use self::schema::tags::dsl::*;
+
+    let result = tags.load::<Tag>(conn);
+
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(selected) => {
+            Ok(selected)
+        },
+    }
+}
+
+pub fn list(conn: &SqliteConnection, size: Option<usize>) -> Result<Vec<Scribble>> {
+    use self::schema::scribbles::dsl::*;
+
+    let result = scribbles.load::<Scribble>(conn);
+
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(selected) => {
+            Ok(selected)
+        },
+    }
+}
+
+pub fn tags_of(conn: &SqliteConnection, scribble_id: i64) -> Result<Vec<Tag>> {
+    use diesel::sql_types::BigInt;
+
+    let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = ? AND taggings.tag_id = tag.id;")
+        .bind::<BigInt, _>(scribble_id)
+        .get_results(conn);
+
+    match result {
+        Err(_) => {
+            Err(())
+        },
+        Ok(selected) => {
+            Ok(selected)
+        },
+    }
 }
