@@ -23,6 +23,7 @@ use self::models::{Scribble, NewScribble, Tag, NewTag, Tagging};
 pub enum Error {
     DatabaseError(diesel::result::Error),
     TagExists,
+    AlreadyTagged,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -123,7 +124,17 @@ pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a
 
             match result {
                 Err(e) => {
-                    Err(Error::DatabaseError(e))
+                    use diesel::result::Error as DieselError;
+                    use diesel::result::DatabaseErrorKind;
+
+                    match e {
+                        DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
+                            Err(Error::AlreadyTagged)
+                        },
+                        _ => {
+                            Err(Error::DatabaseError(e))
+                        },
+                    }
                 },
                 Ok(_) => {
                     let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
