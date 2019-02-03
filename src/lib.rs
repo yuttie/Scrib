@@ -80,7 +80,7 @@ pub fn update_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, new_text: 
     let now = Utc::now();
     let result = diesel::update(scribbles.find(scribble_id))
         .set((updated_at.eq(now.timestamp_nanos()),
-              text.eq(text)))
+              text.eq(new_text)))
         .execute(conn);
 
     match result {
