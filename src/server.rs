@@ -37,7 +37,6 @@ fn handle_root(_req: &HttpRequest<AppState>) -> Result<NamedFile> {
 #[derive(Debug, Deserialize)]
 struct AddRequest {
     text: String,
-    tags: Vec<String>,
 }
 
 fn handle_add((req, state): (Json<AddRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
