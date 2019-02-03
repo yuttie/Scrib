@@ -5,6 +5,7 @@ use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, Fu
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
+use serde_json::json;
 
 use db::{CreateScribble, TagScribble, List};
 
@@ -68,7 +69,12 @@ fn handle_tag((req, state): (Json<TagRequest>, State<AppState>)) -> FutureRespon
         })
         .from_err()
         .and_then(|res| match res {
-            Ok(_) => Ok(HttpResponse::Ok().json(true)),
+            Ok(tagging) => Ok(HttpResponse::Ok().json(tagging)),
+            Err(crate::Error::AlreadyTagged) => Ok(HttpResponse::Ok().json(json!({
+                "error": {
+                    "type": "AlreadyTagged",
+                },
+            }))),
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()
