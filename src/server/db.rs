@@ -1,10 +1,9 @@
 use ::actix::prelude::*;
-use actix_web::*;
 use diesel;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 
-use crate::models;
+use crate::{models, Result};
 
 use self::models::{Scribble, Tag, Tagging};
 
@@ -69,7 +68,6 @@ impl Handler<CreateScribble> for DbExecutor {
     fn handle(&mut self, msg: CreateScribble, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::create_scribble(conn, msg.text.as_str())
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
 
@@ -79,7 +77,6 @@ impl Handler<CreateTag> for DbExecutor {
     fn handle(&mut self, msg: CreateTag, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::create_tag(conn, msg.text.as_str())
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
 
@@ -89,7 +86,6 @@ impl Handler<TagScribble> for DbExecutor {
     fn handle(&mut self, msg: TagScribble, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::tag_scribble(conn, msg.scribble_id, msg.tag_text.as_str())
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
 
@@ -99,7 +95,6 @@ impl Handler<Tags> for DbExecutor {
     fn handle(&mut self, msg: Tags, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::tags(conn)
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
 
@@ -109,7 +104,6 @@ impl Handler<List> for DbExecutor {
     fn handle(&mut self, msg: List, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::list(conn, msg.size)
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
 
@@ -119,6 +113,5 @@ impl Handler<TagsOf> for DbExecutor {
     fn handle(&mut self, msg: TagsOf, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::tags_of(conn, msg.scribble_id)
-            .map_err(|_| error::ErrorInternalServerError(""))
     }
 }
