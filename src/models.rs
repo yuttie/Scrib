@@ -8,6 +8,7 @@ use diesel::{Queryable, QueryableByName, Insertable};
 pub struct Scribble {
     pub id:         i64,
     pub created_at: i64,
+    pub updated_at: Option<i64>,
     pub text:       String,
 }
 
