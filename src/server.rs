@@ -7,7 +7,7 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
 use serde_json::json;
 
-use db::{CreateScribble, TagScribble, List};
+use db::{CreateScribble, UpdateScribble, TagScribble, List};
 
 
 struct AppState {
@@ -23,6 +23,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
             .middleware(Logger::default())
             .resource("/", |r| r.method(http::Method::GET).f(handle_root))
             .resource("/add", |r| r.method(http::Method::POST).with(handle_add))
+            .resource("/update", |r| r.method(http::Method::POST).with(handle_update))
             .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
             .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
     }).bind(HOST_PORT)
@@ -44,6 +45,27 @@ fn handle_add((req, state): (Json<AddRequest>, State<AppState>)) -> FutureRespon
     state
         .db
         .send(CreateScribble {
+            text: req.text.to_owned(),
+        })
+        .from_err()
+        .and_then(|res| match res {
+            Ok(scribble) => Ok(HttpResponse::Ok().json(scribble)),
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        })
+        .responder()
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateRequest {
+    scribble_id: i64,
+    text: String,
+}
+
+fn handle_update((req, state): (Json<UpdateRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
+    state
+        .db
+        .send(UpdateScribble {
+            scribble_id: req.scribble_id,
             text: req.text.to_owned(),
         })
         .from_err()

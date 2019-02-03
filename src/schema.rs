@@ -2,6 +2,7 @@ table! {
     scribbles (id) {
         id -> BigInt,
         created_at -> BigInt,
+        updated_at -> Nullable<BigInt>,
         text -> Text,
     }
 }

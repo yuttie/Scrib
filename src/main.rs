@@ -20,6 +20,11 @@ enum Args {
     Add {
         text: Vec<String>,
     },
+    #[structopt(name = "update")]
+    Update {
+        scribble_id: i64,
+        text: Vec<String>,
+    },
     #[structopt(name = "tag")]
     Tag {
         tag: String,
@@ -57,6 +62,19 @@ fn main() {
 
             let conn = scrib::establish_connection();
             scrib::create_scribble(&conn, &text).unwrap();
+        },
+        Args::Update { scribble_id, text } => {
+            let text = if text.is_empty() {
+                let mut buf = String::new();
+                io::stdin().read_to_string(&mut buf).unwrap();
+                buf
+            }
+            else {
+                text.join(" ")
+            };
+
+            let conn = scrib::establish_connection();
+            scrib::update_scribble(&conn, scribble_id, &text).unwrap();
         },
         Args::Tag { tag, scribble_id } => {
             let conn = scrib::establish_connection();

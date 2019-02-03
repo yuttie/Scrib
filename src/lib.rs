@@ -74,6 +74,28 @@ pub fn create_scribble<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Scr
     }
 }
 
+pub fn update_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, new_text: &'a str) -> Result<Scribble> {
+    use self::schema::scribbles::dsl::*;
+
+    let now = Utc::now();
+    let result = diesel::update(scribbles.find(scribble_id))
+        .set((updated_at.eq(now.timestamp_nanos()),
+              text.eq(new_text)))
+        .execute(conn);
+
+    match result {
+        Err(e) => {
+            Err(Error::DatabaseError(e))
+        },
+        Ok(_) => {
+            let updated = scribbles.filter(id.eq(scribble_id))
+                .get_result(conn)
+                .unwrap();
+            Ok(updated)
+        },
+    }
+}
+
 pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
     use self::schema::tags;
 
