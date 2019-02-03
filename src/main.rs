@@ -1,20 +1,16 @@
 extern crate actix_web;
 extern crate env_logger;
 extern crate log;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate structopt;
 
-use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::MetadataExt;
 
-use actix_web::{http, server, App, HttpRequest, Json, Query, fs::NamedFile, middleware::Logger};
+use diesel::prelude::*;
 use structopt::StructOpt;
 
-use scrib;
+use scrib::{self,models};
 
 
 #[derive(Debug, StructOpt)]
@@ -27,13 +23,13 @@ enum Args {
     #[structopt(name = "tag")]
     Tag {
         tag: String,
-        hash: String,
+        scribble_id: i64,
     },
     #[structopt(name = "tags")]
     Tags,
     #[structopt(name = "tags-of")]
     TagsOf {
-        hash: String,
+        scribble_id: i64,
     },
     #[structopt(name = "list")]
     List {
@@ -44,111 +40,10 @@ enum Args {
     Serve,
 }
 
-fn serve() {
-    const HOST_PORT: &str = "localhost:3000";
-    server::new(
-        || App::new()
-            .middleware(Logger::default())
-            .route("/", http::Method::GET, handle_root)
-            .route("/add", http::Method::POST, handle_add)
-            .route("/tag", http::Method::POST, handle_tag)
-            .route("/list", http::Method::GET, handle_list))
-        .bind(HOST_PORT).expect(&format!("Can not bind to {}", HOST_PORT))
-        .run();
-}
-
-fn handle_root(_req: HttpRequest) -> actix_web::Result<NamedFile> {
-    Ok(NamedFile::open("static/index.html")?)
-}
-
-#[derive(Debug, Deserialize)]
-struct AddRequest {
-    body: String,
-    tags: Vec<String>,
-}
-
-fn handle_add(req: Json<AddRequest>) -> actix_web::Result<Json<bool>> {
-    scrib::add(&req.body);
-    Ok(Json(true))
-}
-
-#[derive(Debug, Deserialize)]
-struct TagRequest {
-    tag: String,
-    target_ids: Vec<String>,
-}
-
-fn handle_tag(req: Json<TagRequest>) -> actix_web::Result<Json<bool>> {
-    for target_id in req.target_ids.iter() {
-        scrib::tag(&req.tag, &target_id);
-    }
-    Ok(Json(true))
-}
-
-#[derive(Debug, Deserialize)]
-struct ListRequest {
-    size: Option<usize>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Scribble {
-    id:      String,
-    content: String,
-    tags:    Vec<String>,
-}
-
-fn handle_list(req: Query<ListRequest>) -> actix_web::Result<Json<Vec<Scribble>>> {
-    let mut obj_dir = scrib::get_scrib_home();
-    obj_dir.push("objects");
-    let mut entries: Vec<_> = obj_dir.read_dir().unwrap().map(|entry| entry.unwrap()).collect();
-
-    entries.sort_by(|a, b| {
-        let mtime_a = a.metadata().unwrap().mtime();
-        let mtime_b = b.metadata().unwrap().mtime();
-        mtime_b.cmp(&mtime_a)
-    });
-
-    let entries: &[_] = match req.size {
-        Some(n) => &entries[..n],
-        None => &entries[..],
-    };
-
-    let mut scribbles: Vec<Scribble> = Vec::new();
-    for entry in entries {
-        let id = entry.file_name().into_string().unwrap();
-
-        let mut file = File::open(entry.path()).unwrap();
-        let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf).unwrap();
-        let content = match String::from_utf8(buf.clone()) {
-            Ok(content) => content,
-            Err(_) => {
-                let mut content = String::new();
-                for b in &buf[0..20] {
-                    content.push_str(&format!("\\u{:04x}", b));
-                }
-                content
-            },
-        };
-
-        let tags = scrib::tags_of(&id);
-
-        let scribble = Scribble {
-            id:      id,
-            content: content,
-            tags:    tags,
-        };
-        scribbles.push(scribble);
-    }
-
-    Ok(Json(scribbles))
-}
-
 fn main() {
     env_logger::init();
 
     let args = Args::from_args();
-    scrib::init();
     match args {
         Args::Add { text } => {
             let text = if text.is_empty() {
@@ -159,17 +54,33 @@ fn main() {
             else {
                 text.join(" ")
             };
-            let hash = scrib::add(&text);
-            println!("{}", &hash);
+
+            let conn = scrib::establish_connection();
+            scrib::create_scribble(&conn, &text).unwrap();
         },
-        Args::Tag { tag, hash } => scrib::tag(&tag, &hash),
-        Args::Tags => scrib::tags(),
-        Args::TagsOf { hash } => {
-            for tag in scrib::tags_of(&hash) {
-                println!("{}", &tag);
+        Args::Tag { tag, scribble_id } => {
+            let conn = scrib::establish_connection();
+            scrib::tag_scribble(&conn, scribble_id, &tag).unwrap();
+        },
+        Args::Tags => {
+            let conn = scrib::establish_connection();
+            scrib::tags(&conn).unwrap();
+        },
+        Args::TagsOf { scribble_id } => {
+            let conn = scrib::establish_connection();
+            for tag in scrib::tags_of(&conn, scribble_id).unwrap() {
+                println!("{}", &tag.text);
             }
         },
-        Args::List { size } => scrib::list(size),
-        Args::Serve => serve(),
+        Args::List { size } => {
+            let conn = scrib::establish_connection();
+            for scribble in scrib::list(&conn, size).unwrap() {
+                println!("{:19}: {:?}", scribble.id, &scribble.text);
+            }
+        },
+        Args::Serve => {
+            let pool = scrib::new_connection_pool();
+            scrib::server::start(pool);
+        },
     }
 }
