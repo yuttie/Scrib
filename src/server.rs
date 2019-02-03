@@ -47,7 +47,7 @@ fn handle_add((req, state): (Json<AddRequest>, State<AppState>)) -> FutureRespon
         })
         .from_err()
         .and_then(|res| match res {
-            Ok(_) => Ok(HttpResponse::Ok().json(true)),
+            Ok(scribble) => Ok(HttpResponse::Ok().json(scribble)),
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()
