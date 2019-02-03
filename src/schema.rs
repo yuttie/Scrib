@@ -3,6 +3,7 @@ table! {
         id -> BigInt,
         created_at -> BigInt,
         text -> Text,
+        updated_at -> Nullable<BigInt>,
     }
 }
 
