@@ -31,6 +31,14 @@ impl Message for UpdateScribble {
     type Result = Result<Scribble>;
 }
 
+pub struct DeleteScribble {
+    pub scribble_id: i64,
+}
+
+impl Message for DeleteScribble {
+    type Result = Result<()>;
+}
+
 pub struct CreateTag {
     pub text: String,
 }
@@ -86,6 +94,15 @@ impl Handler<UpdateScribble> for DbExecutor {
     fn handle(&mut self, msg: UpdateScribble, _: &mut Self::Context) -> Self::Result {
         let conn: &SqliteConnection = &self.0.get().unwrap();
         crate::update_scribble(conn, msg.scribble_id, msg.text.as_str())
+    }
+}
+
+impl Handler<DeleteScribble> for DbExecutor {
+    type Result = Result<()>;
+
+    fn handle(&mut self, msg: DeleteScribble, _: &mut Self::Context) -> Self::Result {
+        let conn: &SqliteConnection = &self.0.get().unwrap();
+        crate::delete_scribble(conn, msg.scribble_id)
     }
 }
 

@@ -96,6 +96,22 @@ pub fn update_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, new_text: 
     }
 }
 
+pub fn delete_scribble<'a>(conn: &SqliteConnection, scribble_id: i64) -> Result<()> {
+    use self::schema::scribbles::dsl::*;
+
+    let result = diesel::delete(scribbles.find(scribble_id))
+        .execute(conn);
+
+    match result {
+        Err(e) => {
+            Err(Error::DatabaseError(e))
+        },
+        Ok(_) => {
+            Ok(())
+        },
+    }
+}
+
 pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
     use self::schema::tags;
 

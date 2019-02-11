@@ -7,7 +7,7 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
 use serde_json::json;
 
-use db::{CreateScribble, UpdateScribble, TagScribble, List};
+use db::{CreateScribble, UpdateScribble, DeleteScribble, TagScribble, List};
 
 
 struct AppState {
@@ -27,6 +27,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
                     .resource("/", |r| r.method(http::Method::GET).f(handle_root))
                     .resource("/add", |r| r.method(http::Method::POST).with(handle_add))
                     .resource("/update", |r| r.method(http::Method::POST).with(handle_update))
+                    .resource("/delete", |r| r.method(http::Method::POST).with(handle_delete))
                     .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
                     .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
                     .register()
@@ -76,6 +77,25 @@ fn handle_update((req, state): (Json<UpdateRequest>, State<AppState>)) -> Future
         .from_err()
         .and_then(|res| match res {
             Ok(scribble) => Ok(HttpResponse::Ok().json(scribble)),
+            Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        })
+        .responder()
+}
+
+#[derive(Debug, Deserialize)]
+struct DeleteRequest {
+    scribble_id: i64,
+}
+
+fn handle_delete((req, state): (Json<DeleteRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
+    state
+        .db
+        .send(DeleteScribble {
+            scribble_id: req.scribble_id,
+        })
+        .from_err()
+        .and_then(|res| match res {
+            Ok(()) => Ok(HttpResponse::Ok().json(())),
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()

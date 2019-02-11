@@ -25,6 +25,10 @@ enum Args {
         scribble_id: i64,
         text: Vec<String>,
     },
+    #[structopt(name = "delete")]
+    Delete {
+        scribble_id: i64,
+    },
     #[structopt(name = "tag")]
     Tag {
         tag: String,
@@ -75,6 +79,10 @@ fn main() {
 
             let conn = scrib::establish_connection();
             scrib::update_scribble(&conn, scribble_id, &text).unwrap();
+        },
+        Args::Delete { scribble_id } => {
+            let conn = scrib::establish_connection();
+            scrib::delete_scribble(&conn, scribble_id).unwrap();
         },
         Args::Tag { tag, scribble_id } => {
             let conn = scrib::establish_connection();
