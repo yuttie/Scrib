@@ -1,7 +1,7 @@
 pub mod db;
 
 use actix::prelude::*;
-use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger};
+use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger, middleware::cors::Cors};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
@@ -21,11 +21,16 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
     server::new(move || {
         App::with_state(AppState { db: addr.clone() })
             .middleware(Logger::default())
-            .resource("/", |r| r.method(http::Method::GET).f(handle_root))
-            .resource("/add", |r| r.method(http::Method::POST).with(handle_add))
-            .resource("/update", |r| r.method(http::Method::POST).with(handle_update))
-            .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
-            .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
+            .configure(|app| {
+                Cors::for_app(app)
+                    .allowed_origin("http://localhost:8080")
+                    .resource("/", |r| r.method(http::Method::GET).f(handle_root))
+                    .resource("/add", |r| r.method(http::Method::POST).with(handle_add))
+                    .resource("/update", |r| r.method(http::Method::POST).with(handle_update))
+                    .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
+                    .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
+                    .register()
+            })
     }).bind(HOST_PORT)
       .expect(&format!("Can not bind to {}", HOST_PORT))
       .start();
