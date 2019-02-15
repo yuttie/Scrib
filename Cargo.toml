@@ -11,6 +11,7 @@ chrono = "0.4"
 diesel = { version = "1.4", features = ["sqlite", "r2d2"] }
 dotenv = "0.13"
 futures = "0.1"
+jsonwebtoken = "5.0"
 log = "0.4"
 env_logger = "0.5"
 r2d2 = "0.8"

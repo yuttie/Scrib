@@ -5,9 +5,11 @@ use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, Fu
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
+use futures::future::result;
 use serde_json::json;
 
 use db::{CreateScribble, UpdateScribble, DeleteScribble, TagScribble, List};
+use jsonwebtoken as jwt;
 
 
 struct AppState {
@@ -30,6 +32,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
                     .resource("/delete", |r| r.method(http::Method::POST).with(handle_delete))
                     .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
                     .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
+                    .resource("/login", |r| r.method(http::Method::POST).with(handle_login))
                     .register()
             })
     }).bind(HOST_PORT)
@@ -144,4 +147,38 @@ fn handle_list((req, state): (Query<ListRequest>, State<AppState>)) -> FutureRes
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: u64,
+    email: String,
+    username: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LoginRequest {
+    email: String,
+    password: String,
+}
+
+fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
+    use jwt::{encode, Header};
+
+    if req.email == "john.doe@example.com" && req.password == "12345" {
+        let my_claims = Claims {
+            sub: 0,
+            email: req.email.to_owned(),
+            username: "john.doe".to_string(),
+        };
+        let token = encode(&Header::default(),
+                           &my_claims,
+                           "secret".as_ref()).unwrap();
+        result(Ok(HttpResponse::Ok().json(token)))
+            .responder()
+    }
+    else {
+        result(Ok(HttpResponse::Ok().json(())))
+            .responder()
+    }
 }
