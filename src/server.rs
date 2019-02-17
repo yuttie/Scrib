@@ -32,6 +32,10 @@ impl<S> Middleware<S> for JwtAuthorization {
         if req.path() == "/login" {
             Ok(Started::Done)
         }
+        else if req.method() == http::Method::OPTIONS {
+            // Allow preflighted requests in CORS
+            Ok(Started::Done)
+        }
         else {
             match req.headers().get(http::header::AUTHORIZATION) {
                 Some(identity) => {
