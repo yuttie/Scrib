@@ -1,9 +1,12 @@
 pub mod db;
 
+use std::env;
+
 use actix::prelude::*;
 use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger, middleware::cors::Cors};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
+use dotenv::dotenv;
 use futures::Future;
 use futures::future::result;
 use jsonwebtoken as jwt;
@@ -165,11 +168,16 @@ struct LoginRequest {
 fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
     use jwt::{encode, Header};
 
-    if req.email == "john.doe@example.com" && req.password == "12345" {
+    dotenv().ok();
+    let username = env::var("USER_NAME").expect("USER_NAME must be set.");
+    let email = env::var("USER_EMAIL").expect("USER_EMAIL must be set.");
+    let password = env::var("USER_PASSWORD").expect("USER_PASSWORD must be set.");
+
+    if req.email == email && req.password == password {
         let my_claims = Claims {
             sub: 0,
-            email: req.email.to_owned(),
-            username: "john.doe".to_string(),
+            email: email,
+            username: username,
         };
         let token = encode(&Header::default(),
                            &my_claims,
