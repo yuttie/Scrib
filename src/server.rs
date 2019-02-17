@@ -4,6 +4,7 @@ use std::env;
 
 use actix::prelude::*;
 use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger, middleware::cors::Cors};
+use argon2;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use dotenv::dotenv;
@@ -171,9 +172,9 @@ fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureR
     dotenv().ok();
     let username = env::var("USER_NAME").expect("USER_NAME must be set.");
     let email = env::var("USER_EMAIL").expect("USER_EMAIL must be set.");
-    let password = env::var("USER_PASSWORD").expect("USER_PASSWORD must be set.");
+    let encoded_password = env::var("USER_PASSWORD").expect("USER_PASSWORD must be set.");
 
-    if req.email == email && req.password == password {
+    if req.email == email && argon2::verify_encoded(&encoded_password, req.password.as_ref()).unwrap() {
         let my_claims = Claims {
             sub: 0,
             email: email,
