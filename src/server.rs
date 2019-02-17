@@ -4,6 +4,7 @@ use std::env;
 
 use actix::prelude::*;
 use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger, middleware::cors::Cors};
+use actix_web::middleware::{Middleware, Started};
 use argon2;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -20,6 +21,36 @@ struct AppState {
     db: Addr<db::DbExecutor>,
 }
 
+pub struct JwtAuthorization;
+
+impl<S> Middleware<S> for JwtAuthorization {
+    fn start(&self, req: &HttpRequest<S>) -> Result<Started> {
+        dotenv().ok();
+
+        let server_secret = env::var("SERVER_SECRET").expect("SERVER_SECRET must be set.");
+
+        if req.path() == "/login" {
+            Ok(Started::Done)
+        }
+        else {
+            match req.headers().get(http::header::AUTHORIZATION) {
+                Some(identity) => {
+                    let token = identity.to_str().unwrap().split_whitespace().nth(1).unwrap();
+                    let validation = jwt::Validation {
+                        validate_exp: false,
+                        ..jwt::Validation::default()
+                    };
+                    match jwt::decode::<Claims>(&token, server_secret.as_ref(), &validation) {
+                        Ok(_) => Ok(Started::Done),
+                        Err(_) => Ok(Started::Response(HttpResponse::Unauthorized().finish())),
+                    }
+                },
+                None => Ok(Started::Response(HttpResponse::Unauthorized().finish())),
+            }
+        }
+    }
+}
+
 pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
     const HOST_PORT: &str = "localhost:3000";
     let sys = actix::System::new("diesel-example");
@@ -27,6 +58,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
     server::new(move || {
         App::with_state(AppState { db: addr.clone() })
             .middleware(Logger::default())
+            .middleware(JwtAuthorization)
             .configure(|app| {
                 Cors::for_app(app)
                     .allowed_origin("http://localhost:8080")
