@@ -6,10 +6,10 @@ use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use futures::Future;
 use futures::future::result;
+use jsonwebtoken as jwt;
 use serde_json::json;
 
 use db::{CreateScribble, UpdateScribble, DeleteScribble, TagScribble, List};
-use jsonwebtoken as jwt;
 
 
 struct AppState {
