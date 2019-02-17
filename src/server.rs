@@ -1,10 +1,17 @@
 pub mod db;
 
+use std::env;
+
 use actix::prelude::*;
 use actix_web::{http, server, App, HttpRequest, HttpResponse, AsyncResponder, FutureResponse, State, Json, Query, Result, fs::NamedFile, middleware::Logger, middleware::cors::Cors};
+use actix_web::middleware::{Middleware, Started};
+use argon2;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
+use dotenv::dotenv;
 use futures::Future;
+use futures::future::result;
+use jsonwebtoken as jwt;
 use serde_json::json;
 
 use db::{CreateScribble, UpdateScribble, DeleteScribble, TagScribble, List};
@@ -14,6 +21,40 @@ struct AppState {
     db: Addr<db::DbExecutor>,
 }
 
+pub struct JwtAuthorization;
+
+impl<S> Middleware<S> for JwtAuthorization {
+    fn start(&self, req: &HttpRequest<S>) -> Result<Started> {
+        dotenv().ok();
+
+        let server_secret = env::var("SERVER_SECRET").expect("SERVER_SECRET must be set.");
+
+        if req.path() == "/login" {
+            Ok(Started::Done)
+        }
+        else if req.method() == http::Method::OPTIONS {
+            // Allow preflighted requests in CORS
+            Ok(Started::Done)
+        }
+        else {
+            match req.headers().get(http::header::AUTHORIZATION) {
+                Some(identity) => {
+                    let token = identity.to_str().unwrap().split_whitespace().nth(1).unwrap();
+                    let validation = jwt::Validation {
+                        validate_exp: false,
+                        ..jwt::Validation::default()
+                    };
+                    match jwt::decode::<Claims>(&token, server_secret.as_ref(), &validation) {
+                        Ok(_) => Ok(Started::Done),
+                        Err(_) => Ok(Started::Response(HttpResponse::Unauthorized().finish())),
+                    }
+                },
+                None => Ok(Started::Response(HttpResponse::Unauthorized().finish())),
+            }
+        }
+    }
+}
+
 pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
     const HOST_PORT: &str = "localhost:3000";
     let sys = actix::System::new("diesel-example");
@@ -21,6 +62,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
     server::new(move || {
         App::with_state(AppState { db: addr.clone() })
             .middleware(Logger::default())
+            .middleware(JwtAuthorization)
             .configure(|app| {
                 Cors::for_app(app)
                     .allowed_origin("http://localhost:8080")
@@ -30,6 +72,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
                     .resource("/delete", |r| r.method(http::Method::POST).with(handle_delete))
                     .resource("/tag", |r| r.method(http::Method::POST).with(handle_tag))
                     .resource("/list", |r| r.method(http::Method::GET).with(handle_list))
+                    .resource("/login", |r| r.method(http::Method::POST).with(handle_login))
                     .register()
             })
     }).bind(HOST_PORT)
@@ -144,4 +187,44 @@ fn handle_list((req, state): (Query<ListRequest>, State<AppState>)) -> FutureRes
             Err(_) => Ok(HttpResponse::InternalServerError().into()),
         })
         .responder()
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: u64,
+    email: String,
+    username: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LoginRequest {
+    email: String,
+    password: String,
+}
+
+fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureResponse<HttpResponse> {
+    use jwt::{encode, Header};
+
+    dotenv().ok();
+    let username = env::var("USER_NAME").expect("USER_NAME must be set.");
+    let email = env::var("USER_EMAIL").expect("USER_EMAIL must be set.");
+    let encoded_password = env::var("USER_PASSWORD").expect("USER_PASSWORD must be set.");
+    let server_secret = env::var("SERVER_SECRET").expect("SERVER_SECRET must be set.");
+
+    if req.email == email && argon2::verify_encoded(&encoded_password, req.password.as_ref()).unwrap() {
+        let my_claims = Claims {
+            sub: 0,
+            email: email,
+            username: username,
+        };
+        let token = encode(&Header::default(),
+                           &my_claims,
+                           server_secret.as_ref()).unwrap();
+        result(Ok(HttpResponse::Ok().json(token)))
+            .responder()
+    }
+    else {
+        result(Ok(HttpResponse::Ok().json(())))
+            .responder()
+    }
 }
