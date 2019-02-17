@@ -173,6 +173,7 @@ fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureR
     let username = env::var("USER_NAME").expect("USER_NAME must be set.");
     let email = env::var("USER_EMAIL").expect("USER_EMAIL must be set.");
     let encoded_password = env::var("USER_PASSWORD").expect("USER_PASSWORD must be set.");
+    let server_secret = env::var("SERVER_SECRET").expect("SERVER_SECRET must be set.");
 
     if req.email == email && argon2::verify_encoded(&encoded_password, req.password.as_ref()).unwrap() {
         let my_claims = Claims {
@@ -182,7 +183,7 @@ fn handle_login((req, _state): (Json<LoginRequest>, State<AppState>)) -> FutureR
         };
         let token = encode(&Header::default(),
                            &my_claims,
-                           "secret".as_ref()).unwrap();
+                           server_secret.as_ref()).unwrap();
         result(Ok(HttpResponse::Ok().json(token)))
             .responder()
     }
