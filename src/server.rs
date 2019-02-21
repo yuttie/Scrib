@@ -65,6 +65,7 @@ pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
             .middleware(JwtAuthorization)
             .configure(|app| {
                 Cors::for_app(app)
+                    .max_age(5)
                     .send_wildcard()
                     .resource("/", |r| r.method(http::Method::GET).f(handle_root))
                     .resource("/add", |r| r.method(http::Method::POST).with(handle_add))
