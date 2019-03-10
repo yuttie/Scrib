@@ -8,7 +8,7 @@ use crate::{models, Result};
 use self::models::{Scribble, Tag, Tagging};
 
 
-pub struct DbExecutor(pub Pool<ConnectionManager<SqliteConnection>>);
+pub struct DbExecutor(pub Pool<ConnectionManager<PgConnection>>);
 
 impl Actor for DbExecutor {
     type Context = SyncContext<Self>;
@@ -83,7 +83,7 @@ impl Handler<CreateScribble> for DbExecutor {
     type Result = Result<Scribble>;
 
     fn handle(&mut self, msg: CreateScribble, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::create_scribble(conn, msg.text.as_str())
     }
 }
@@ -92,7 +92,7 @@ impl Handler<UpdateScribble> for DbExecutor {
     type Result = Result<Scribble>;
 
     fn handle(&mut self, msg: UpdateScribble, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::update_scribble(conn, msg.scribble_id, msg.text.as_str())
     }
 }
@@ -101,7 +101,7 @@ impl Handler<DeleteScribble> for DbExecutor {
     type Result = Result<()>;
 
     fn handle(&mut self, msg: DeleteScribble, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::delete_scribble(conn, msg.scribble_id)
     }
 }
@@ -110,7 +110,7 @@ impl Handler<CreateTag> for DbExecutor {
     type Result = Result<Tag>;
 
     fn handle(&mut self, msg: CreateTag, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::create_tag(conn, msg.text.as_str())
     }
 }
@@ -119,7 +119,7 @@ impl Handler<TagScribble> for DbExecutor {
     type Result = Result<Tagging>;
 
     fn handle(&mut self, msg: TagScribble, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::tag_scribble(conn, msg.scribble_id, msg.tag_text.as_str())
     }
 }
@@ -128,7 +128,7 @@ impl Handler<Tags> for DbExecutor {
     type Result = Result<Vec<Tag>>;
 
     fn handle(&mut self, msg: Tags, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::tags(conn)
     }
 }
@@ -137,7 +137,7 @@ impl Handler<List> for DbExecutor {
     type Result = Result<Vec<Scribble>>;
 
     fn handle(&mut self, msg: List, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::list(conn, msg.size)
     }
 }
@@ -146,7 +146,7 @@ impl Handler<TagsOf> for DbExecutor {
     type Result = Result<Vec<Tag>>;
 
     fn handle(&mut self, msg: TagsOf, _: &mut Self::Context) -> Self::Result {
-        let conn: &SqliteConnection = &self.0.get().unwrap();
+        let conn: &PgConnection = &self.0.get().unwrap();
         crate::tags_of(conn, msg.scribble_id)
     }
 }

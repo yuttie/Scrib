@@ -55,7 +55,7 @@ impl<S> Middleware<S> for JwtAuthorization {
     }
 }
 
-pub fn start(pool: Pool<ConnectionManager<SqliteConnection>>) {
+pub fn start(pool: Pool<ConnectionManager<PgConnection>>) {
     const HOST_PORT: &str = "localhost:3000";
     let sys = actix::System::new("diesel-example");
     let addr = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));

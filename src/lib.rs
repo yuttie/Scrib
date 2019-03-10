@@ -28,27 +28,27 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub fn establish_connection() -> SqliteConnection {
+pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
-    SqliteConnection::establish(&database_url)
+    PgConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn new_connection_pool() -> Pool<ConnectionManager<SqliteConnection>> {
+pub fn new_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
     dotenv().ok();
 
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
-    let manager = ConnectionManager::<SqliteConnection>::new(database_url.as_str());
+    let manager = ConnectionManager::<PgConnection>::new(database_url.as_str());
     r2d2::Pool::builder()
         .build(manager)
         .expect("Failed to create pool.")
 }
 
-pub fn create_scribble<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Scribble> {
+pub fn create_scribble<'a>(conn: &PgConnection, text: &'a str) -> Result<Scribble> {
     use self::schema::scribbles;
 
     let now = Utc::now();
@@ -74,7 +74,7 @@ pub fn create_scribble<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Scr
     }
 }
 
-pub fn update_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, new_text: &'a str) -> Result<Scribble> {
+pub fn update_scribble<'a>(conn: &PgConnection, scribble_id: i64, new_text: &'a str) -> Result<Scribble> {
     use self::schema::scribbles::dsl::*;
 
     let now = Utc::now();
@@ -96,7 +96,7 @@ pub fn update_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, new_text: 
     }
 }
 
-pub fn delete_scribble<'a>(conn: &SqliteConnection, scribble_id: i64) -> Result<()> {
+pub fn delete_scribble<'a>(conn: &PgConnection, scribble_id: i64) -> Result<()> {
     use self::schema::scribbles::dsl::*;
 
     let result = diesel::delete(scribbles.find(scribble_id))
@@ -112,7 +112,7 @@ pub fn delete_scribble<'a>(conn: &SqliteConnection, scribble_id: i64) -> Result<
     }
 }
 
-pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
+pub fn create_tag<'a>(conn: &PgConnection, text: &'a str) -> Result<Tag> {
     use self::schema::tags;
 
     let now = Utc::now();
@@ -148,7 +148,7 @@ pub fn create_tag<'a>(conn: &SqliteConnection, text: &'a str) -> Result<Tag> {
     }
 }
 
-pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a str) -> Result<Tagging> {
+pub fn tag_scribble<'a>(conn: &PgConnection, scribble_id: i64, tag_text: &'a str) -> Result<Tagging> {
     use diesel::sql_types::{BigInt, Text};
 
     match create_tag(&conn, &tag_text) {
@@ -188,7 +188,7 @@ pub fn tag_scribble<'a>(conn: &SqliteConnection, scribble_id: i64, tag_text: &'a
     }
 }
 
-pub fn tags(conn: &SqliteConnection) -> Result<Vec<Tag>> {
+pub fn tags(conn: &PgConnection) -> Result<Vec<Tag>> {
     use self::schema::tags::dsl::*;
 
     let result = tags.load::<Tag>(conn);
@@ -203,7 +203,7 @@ pub fn tags(conn: &SqliteConnection) -> Result<Vec<Tag>> {
     }
 }
 
-pub fn list(conn: &SqliteConnection, size: Option<usize>) -> Result<Vec<Scribble>> {
+pub fn list(conn: &PgConnection, size: Option<usize>) -> Result<Vec<Scribble>> {
     use self::schema::scribbles::dsl::*;
 
     let result = scribbles.load::<Scribble>(conn);
@@ -218,7 +218,7 @@ pub fn list(conn: &SqliteConnection, size: Option<usize>) -> Result<Vec<Scribble
     }
 }
 
-pub fn tags_of(conn: &SqliteConnection, scribble_id: i64) -> Result<Vec<Tag>> {
+pub fn tags_of(conn: &PgConnection, scribble_id: i64) -> Result<Vec<Tag>> {
     use diesel::sql_types::BigInt;
 
     let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = ? AND taggings.tag_id = tags.id;")
