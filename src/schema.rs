@@ -1,25 +1,25 @@
 table! {
     scribbles (id) {
-        id -> BigInt,
-        created_at -> BigInt,
-        updated_at -> Nullable<BigInt>,
+        id -> Int8,
+        created_at -> Int8,
+        updated_at -> Nullable<Int8>,
         text -> Text,
     }
 }
 
 table! {
     taggings (id) {
-        id -> BigInt,
-        created_at -> BigInt,
-        scribble_id -> BigInt,
-        tag_id -> BigInt,
+        id -> Int8,
+        created_at -> Int8,
+        scribble_id -> Int8,
+        tag_id -> Int8,
     }
 }
 
 table! {
     tags (id) {
-        id -> BigInt,
-        created_at -> BigInt,
+        id -> Int8,
+        created_at -> Int8,
         text -> Text,
     }
 }
