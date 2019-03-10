@@ -59,16 +59,13 @@ pub fn create_scribble<'a>(conn: &PgConnection, text: &'a str) -> Result<Scribbl
 
     let result = diesel::insert_into(scribbles::table)
         .values(&new_scribble)
-        .execute(conn);
+        .get_result(conn);
 
     match result {
         Err(e) => {
             Err(Error::DatabaseError(e))
         },
-        Ok(_) => {
-            let created = diesel::sql_query("SELECT * FROM scribbles WHERE rowid = last_insert_rowid();")
-                .get_result(conn)
-                .unwrap();
+        Ok(created) => {
             Ok(created)
         },
     }
@@ -81,16 +78,13 @@ pub fn update_scribble<'a>(conn: &PgConnection, scribble_id: i64, new_text: &'a 
     let result = diesel::update(scribbles.find(scribble_id))
         .set((updated_at.eq(now.timestamp_nanos()),
               text.eq(new_text)))
-        .execute(conn);
+        .get_result(conn);
 
     match result {
         Err(e) => {
             Err(Error::DatabaseError(e))
         },
-        Ok(_) => {
-            let updated = scribbles.filter(id.eq(scribble_id))
-                .get_result(conn)
-                .unwrap();
+        Ok(updated) => {
             Ok(updated)
         },
     }
@@ -123,7 +117,7 @@ pub fn create_tag<'a>(conn: &PgConnection, text: &'a str) -> Result<Tag> {
 
     let result = diesel::insert_into(tags::table)
         .values(&new_tag)
-        .execute(conn);
+        .get_result(conn);
 
     match result {
         Err(e) => {
@@ -139,10 +133,7 @@ pub fn create_tag<'a>(conn: &PgConnection, text: &'a str) -> Result<Tag> {
                 },
             }
         },
-        Ok(_) => {
-            let created = diesel::sql_query("SELECT * FROM tags WHERE rowid = last_insert_rowid();")
-                .get_result(conn)
-                .unwrap();
+        Ok(created) => {
             Ok(created)
         },
     }
@@ -158,7 +149,7 @@ pub fn tag_scribble<'a>(conn: &PgConnection, scribble_id: i64, tag_text: &'a str
                 .bind::<BigInt, _>(now.timestamp_nanos())
                 .bind::<BigInt, _>(scribble_id)
                 .bind::<Text, _>(tag_text)
-                .execute(conn);
+                .get_result(conn);
 
             match result {
                 Err(e) => {
@@ -174,10 +165,7 @@ pub fn tag_scribble<'a>(conn: &PgConnection, scribble_id: i64, tag_text: &'a str
                         },
                     }
                 },
-                Ok(_) => {
-                    let created = diesel::sql_query("SELECT * FROM taggings WHERE rowid = last_insert_rowid();")
-                        .get_result(conn)
-                        .unwrap();
+                Ok(created) => {
                     Ok(created)
                 },
             }
