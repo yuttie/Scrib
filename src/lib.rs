@@ -145,7 +145,7 @@ pub fn tag_scribble<'a>(conn: &PgConnection, scribble_id: i64, tag_text: &'a str
     match create_tag(&conn, &tag_text) {
         Ok(_) | Err(Error::TagExists) => {
             let now = Utc::now();
-            let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES (?, ?, (SELECT id FROM tags WHERE text = ?));")
+            let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES ($1, $2, (SELECT id FROM tags WHERE text = $3));")
                 .bind::<BigInt, _>(now.timestamp_nanos())
                 .bind::<BigInt, _>(scribble_id)
                 .bind::<Text, _>(tag_text)
@@ -209,7 +209,7 @@ pub fn list(conn: &PgConnection, size: Option<usize>) -> Result<Vec<Scribble>> {
 pub fn tags_of(conn: &PgConnection, scribble_id: i64) -> Result<Vec<Tag>> {
     use diesel::sql_types::BigInt;
 
-    let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = ? AND taggings.tag_id = tags.id;")
+    let result = diesel::sql_query("SELECT tags.* FROM tags, taggings WHERE taggings.scribble_id = $1 AND taggings.tag_id = tags.id;")
         .bind::<BigInt, _>(scribble_id)
         .get_results(conn);
 
