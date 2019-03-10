@@ -145,7 +145,7 @@ pub fn tag_scribble<'a>(conn: &PgConnection, scribble_id: i64, tag_text: &'a str
     match create_tag(&conn, &tag_text) {
         Ok(_) | Err(Error::TagExists) => {
             let now = Utc::now();
-            let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES ($1, $2, (SELECT id FROM tags WHERE text = $3));")
+            let result = diesel::sql_query("INSERT INTO taggings (created_at, scribble_id, tag_id) VALUES ($1, $2, (SELECT id FROM tags WHERE text = $3)) RETURNING *;")
                 .bind::<BigInt, _>(now.timestamp_nanos())
                 .bind::<BigInt, _>(scribble_id)
                 .bind::<Text, _>(tag_text)
