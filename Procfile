@@ -1,2 +1,2 @@
 web: ./target/release/scrib serve
-release: ./target/release/diesel migration run
+release: ./target/release/diesel migration run $PORT
