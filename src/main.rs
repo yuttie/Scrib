@@ -46,7 +46,12 @@ enum Args {
         size: Option<usize>,
     },
     #[structopt(name = "serve")]
-    Serve,
+    Serve {
+        #[structopt(long = "host", default_value = "0.0.0.0")]
+        host: String,
+        #[structopt(name = "PORT")]
+        port: u16,
+    },
 }
 
 fn main() {
@@ -106,9 +111,9 @@ fn main() {
                 println!("{:19}: {:?}", scribble.id, &scribble.text);
             }
         },
-        Args::Serve => {
+        Args::Serve { host, port } => {
             let pool = scrib::new_connection_pool();
-            scrib::server::start(pool);
+            scrib::server::start(&host, port, pool);
         },
     }
 }

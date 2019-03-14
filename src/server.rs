@@ -55,8 +55,7 @@ impl<S> Middleware<S> for JwtAuthorization {
     }
 }
 
-pub fn start(pool: Pool<ConnectionManager<PgConnection>>) {
-    const HOST_PORT: &str = "localhost:3000";
+pub fn start(host: &str, port: u16, pool: Pool<ConnectionManager<PgConnection>>) {
     let sys = actix::System::new("diesel-example");
     let addr = SyncArbiter::start(3, move || db::DbExecutor(pool.clone()));
     server::new(move || {
@@ -76,8 +75,8 @@ pub fn start(pool: Pool<ConnectionManager<PgConnection>>) {
                     .resource("/login", |r| r.method(http::Method::POST).with(handle_login))
                     .register()
             })
-    }).bind(HOST_PORT)
-      .expect(&format!("Can not bind to {}", HOST_PORT))
+    }).bind((host, port))
+      .expect(&format!("Can not bind to {}:{}", host, port))
       .start();
     let _ = sys.run();
 }
