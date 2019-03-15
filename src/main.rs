@@ -10,11 +10,11 @@ use std::os::unix::fs::MetadataExt;
 use diesel::prelude::*;
 use structopt::StructOpt;
 
-use scrib::{self,models};
+use forghetti::{self,models};
 
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "scrib", about = "Let's Scribble!")]
+#[structopt(name = "forghetti", about = "Scribble and forget it!")]
 enum Args {
     #[structopt(name = "add")]
     Add {
@@ -69,8 +69,8 @@ fn main() {
                 text.join(" ")
             };
 
-            let conn = scrib::establish_connection();
-            scrib::create_scribble(&conn, &text).unwrap();
+            let conn = forghetti::establish_connection();
+            forghetti::create_scribble(&conn, &text).unwrap();
         },
         Args::Update { scribble_id, text } => {
             let text = if text.is_empty() {
@@ -82,38 +82,38 @@ fn main() {
                 text.join(" ")
             };
 
-            let conn = scrib::establish_connection();
-            scrib::update_scribble(&conn, scribble_id, &text).unwrap();
+            let conn = forghetti::establish_connection();
+            forghetti::update_scribble(&conn, scribble_id, &text).unwrap();
         },
         Args::Delete { scribble_id } => {
-            let conn = scrib::establish_connection();
-            scrib::delete_scribble(&conn, scribble_id).unwrap();
+            let conn = forghetti::establish_connection();
+            forghetti::delete_scribble(&conn, scribble_id).unwrap();
         },
         Args::Tag { tag, scribble_id } => {
-            let conn = scrib::establish_connection();
-            scrib::tag_scribble(&conn, scribble_id, &tag).unwrap();
+            let conn = forghetti::establish_connection();
+            forghetti::tag_scribble(&conn, scribble_id, &tag).unwrap();
         },
         Args::Tags => {
-            let conn = scrib::establish_connection();
-            for tag in scrib::tags(&conn).unwrap() {
+            let conn = forghetti::establish_connection();
+            for tag in forghetti::tags(&conn).unwrap() {
                 println!("{}", &tag.text);
             }
         },
         Args::TagsOf { scribble_id } => {
-            let conn = scrib::establish_connection();
-            for tag in scrib::tags_of(&conn, scribble_id).unwrap() {
+            let conn = forghetti::establish_connection();
+            for tag in forghetti::tags_of(&conn, scribble_id).unwrap() {
                 println!("{}", &tag.text);
             }
         },
         Args::List { size } => {
-            let conn = scrib::establish_connection();
-            for scribble in scrib::list(&conn, size).unwrap() {
+            let conn = forghetti::establish_connection();
+            for scribble in forghetti::list(&conn, size).unwrap() {
                 println!("{:19}: {:?}", scribble.id, &scribble.text);
             }
         },
         Args::Serve { host, port } => {
-            let pool = scrib::new_connection_pool();
-            scrib::server::start(&host, port, pool);
+            let pool = forghetti::new_connection_pool();
+            forghetti::server::start(&host, port, pool);
         },
     }
 }
